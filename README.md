@@ -2,7 +2,7 @@
 This application is for building a nation. This can be use by any political party or any governement and non government organization.
 
 --------------------------------------Start FS------------------------------------------
-# MVP of PPMS
+# MVP of PPMS(FS)
 Core business functionalities of Political Party Management System (PPMS) 
 
 # 🧩 Core Functional Modules for BuildNation
@@ -157,3 +157,167 @@ Public-facing or internal issue reporting system.
     Donation portals
 
 --------------------------------------END FS------------------------------------------
+
+--------------------------------------Start TS------------------------------------------
+# MVP of PPMS(TS)
+Core Technical Specification of Political Party Management System (PPMS) 
+
+# 🧱 Microservice Breakdown for BuildNation
+Each service can have its own DB, API, and optionally message queue events.
+
+# 1. Auth Service:
+    Central service for authentication, JWT token generation, and user role validation.
+
+    Login/Logout
+
+    Token issuance and refresh
+
+    Role-based access control (RBAC)
+
+    User registration (optional or delegate to Member Service)
+
+# 2. Member Service:
+    Manages all users (members, volunteers, leaders).
+
+    Create/update/delete member
+
+    Fetch member profile, list
+
+    Member types: General Member, Volunteer, Leader, Admin
+
+    Role and region assignment
+
+    Member verification / approval workflow
+
+# 3. Constituency Service:
+    Geographic hierarchy and mapping.
+
+    Add/edit regions, constituencies, wards
+
+    Assign leaders to regions
+
+    Region-wise member statistics
+
+    Tie-ins with Election, Campaign modules
+
+# 4. Campaign Service:
+    For managing all kinds of party campaigns and events.
+
+    Create/edit campaigns/events
+
+    Assign volunteers/resources
+
+    Track RSVPs and attendance
+
+    Link campaign to region(s)
+
+# 5. Volunteer Service:
+    Subset of Member Service (can be separate for scalability).
+
+    Volunteer onboarding
+
+    Availability schedule
+
+    Performance tracking
+
+    Volunteer task assignment and management
+
+# 6. Fundraising & Donation Service:
+    Handles donor profiles, payments, and tracking.
+
+    Donor registration and history
+
+    Accept donations (via Payment Gateway)
+
+    Generate receipts
+
+    Track fundraising targets
+
+# 7. Election Service:
+    Central to candidate and booth-level operations.
+
+    Nominate and register candidates
+
+    Assign campaign zones
+
+    Add election results (manual/imported)
+
+    View past results and analysis
+
+# 8. Task Management Service:
+    Lightweight workflow engine for internal task tracking.
+
+    Task assignment and status tracking
+
+    Deadlines and priorities
+
+    Task commenting/logging
+
+# 9. Communication Service:
+    For all internal and external messaging.
+
+    SMS, Email, Push Notification
+
+    Group messages and newsletters
+
+    Public announcements
+
+# 10. Grievance & Feedback Service:
+    Complaint and suggestion box from members and public.
+
+    Create/view/update tickets
+
+    Assign and track resolution
+
+    Reports by category/region
+
+# 11. Policy & Manifesto Service:
+    Manage official party policies and manifestos.
+
+    Upload new manifestos (by region, version)
+
+    Set visibility (public/internal)
+
+    Allow commenting/discussion (optional)
+
+# 12. Analytics & Reporting Service:
+    Central reporting engine.
+
+    Aggregated data from other services
+
+    Dashboards per module (donation, campaign, volunteer, etc.)
+
+    Export reports (PDF, CSV)
+
+    Power BI or Grafana integration possible
+
+# 👤 Suggested User Roles & Permissions
+# Role	            Permissions
+-----------------   --------------------------------------------------------
+Admin	            Full system access, create/edit/delete all
+Regional Leader	    Manage members, campaigns, volunteers in assigned region
+Volunteer Manager	Approve volunteers, assign tasks
+Campaign Manager	Create and manage events, assign resources
+Candidate	        View own campaign progress, submit reports
+Member	            View info, participate in events, update profile
+Donor	            Donate, track donation history
+Public             User	View manifesto, events, donate, submit feedback
+
+🔐 Tip: Use Spring Security + JWT with role-based filters to secure each microservice.
+
+
+# 🧭 Tech Stack Suggestions:
+    Gateway/API Gateway: Spring Cloud Gateway
+
+    Service Registry: Netflix Eureka
+
+    Config Server: Spring Cloud Config
+
+    Database: PostgreSQL / MySQL per service
+
+    Queue: RabbitMQ / Kafka (for async communication)
+
+    CI/CD: Jenkins + Docker + GitHub
+
+    Deployment: Docker Compose or Kubernetes
+--------------------------------------END TS------------------------------------------

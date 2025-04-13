@@ -1,6 +1,7 @@
 # BuildNation
 This application is for building a nation. This can be use by any political party or any governement and non government organization.
 
+--------------------------------------Start FS------------------------------------------
 # MVP of PPMS
 Core business functionalities of Political Party Management System (PPMS) 
 
@@ -155,4 +156,4 @@ Public-facing or internal issue reporting system.
 
     Donation portals
 
-# 
+--------------------------------------END FS------------------------------------------

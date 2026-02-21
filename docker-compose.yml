@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: buildnation-postgres
+    environment:
+      POSTGRES_DB: buildnation_db
+      POSTGRES_USER: buildnation
+      POSTGRES_PASSWORD: buildnation123
+    ports:
+      - "5433:5432"
+    volumes:
+      - buildnation_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buildnation -d buildnation_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  member-management:
+    build:
+      context: ./member-management
+      dockerfile: Dockerfile
+    container_name: buildnation-member-management
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/buildnation_db
+      SPRING_DATASOURCE_USERNAME: buildnation
+      SPRING_DATASOURCE_PASSWORD: buildnation123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      EUREKA_CLIENT_ENABLED: false
+      SPRING_AUTOCONFIGURE_EXCLUDE: >-
+        org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,
+        org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration,
+        org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  buildnation_pgdata:

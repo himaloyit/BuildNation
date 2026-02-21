@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" 
+		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.himaloyit.buildnation</groupId>
+    <artifactId>build-nation</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>eureka-service-discovery</module>
+        <module>gateway-service-config</module>
+        <module>security-access-control</module>
+        <module>member-management</module>
+        <module>constituency-region-management</module>
+        <module>event-campaign-management</module>
+        <module>volunteer-management</module>
+        <module>donations-fundraising</module>
+        <module>internal-communication-media</module>
+        <module>task-workflow-management</module>
+        <module>election-management</module>
+        <module>analytics-reporting</module>
+        <module>policy-manifesto-management</module>
+        <module>grievance-feedback-management</module>
+        <module>build-nation-web-portal</module>
+        <module>notification</module>
+    </modules>
+
+</project>

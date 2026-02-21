@@ -14,6 +14,10 @@ import com.himaloyit.buildnation.mm.domain.model.UpdateMemberStatusRequest;
 import com.himaloyit.buildnation.mm.domain.repositories.iRepositories.IMemberRepository;
 import com.himaloyit.buildnation.mm.services.iServices.IMemberService;
 import com.himaloyit.buildnation.mm.util.exceptions.EntityNotFoundException;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -39,6 +43,7 @@ public class MemberService implements IMemberService {
     }
 
     @Override
+    @CacheEvict(value = "members-list", allEntries = true)
     public MemberDTO createMember(CreateMemberRequest request) {
         MemberProfile profile = MemberProfile.builder()
                 .dob(request.getDob() != null ? request.getDob().toString() : null)
@@ -82,6 +87,7 @@ public class MemberService implements IMemberService {
     }
 
     @Override
+    @Cacheable(value = "members", key = "#id")
     public MemberDTO getMember(UUID id) {
         return iMemberRepository.findById(id)
                 .map(iMemberMapper::toDto)
@@ -96,11 +102,16 @@ public class MemberService implements IMemberService {
     }
 
     @Override
+    @Cacheable(value = "members-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<MemberDTO> getAllMembers(Pageable pageable) {
         return iMemberRepository.findAll(pageable).map(iMemberMapper::toDto);
     }
 
     @Override
+    @Caching(
+        put  = @CachePut(value = "members", key = "#id"),
+        evict = @CacheEvict(value = "members-list", allEntries = true)
+    )
     public MemberDTO updateMember(UUID id, UpdateMemberRequest request) {
         Member member = iMemberRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Member not found with id: " + id));
@@ -111,11 +122,14 @@ public class MemberService implements IMemberService {
         if (request.getConstituencyId() != null) member.setConstituencyId(request.getConstituencyId());
         member.setUpdatedAt(LocalDateTime.now());
 
-        Member saved = iMemberRepository.save(member);
-        return iMemberMapper.toDto(saved);
+        return iMemberMapper.toDto(iMemberRepository.save(member));
     }
 
     @Override
+    @Caching(evict = {
+        @CacheEvict(value = "members", key = "#id"),
+        @CacheEvict(value = "members-list", allEntries = true)
+    })
     public void deleteMember(UUID id) {
         if (!iMemberRepository.existsById(id)) {
             throw new EntityNotFoundException("Member not found with id: " + id);
@@ -124,6 +138,10 @@ public class MemberService implements IMemberService {
     }
 
     @Override
+    @Caching(
+        put  = @CachePut(value = "members", key = "#id"),
+        evict = @CacheEvict(value = "members-list", allEntries = true)
+    )
     public MemberDTO updateMemberRole(UUID id, UpdateMemberRoleRequest request) {
         Member member = iMemberRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Member not found with id: " + id));
@@ -138,6 +156,10 @@ public class MemberService implements IMemberService {
     }
 
     @Override
+    @Caching(
+        put  = @CachePut(value = "members", key = "#id"),
+        evict = @CacheEvict(value = "members-list", allEntries = true)
+    )
     public MemberDTO updateMemberStatus(UUID id, UpdateMemberStatusRequest request) {
         Member member = iMemberRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Member not found with id: " + id));

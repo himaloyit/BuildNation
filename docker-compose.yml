@@ -17,6 +17,20 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: buildnation-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - buildnation_redisdata:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   member-management:
     build:
       context: ./member-management
@@ -29,15 +43,17 @@ services:
       SPRING_DATASOURCE_USERNAME: buildnation
       SPRING_DATASOURCE_PASSWORD: buildnation123
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
       EUREKA_CLIENT_ENABLED: false
-      SPRING_AUTOCONFIGURE_EXCLUDE: >-
-        org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,
-        org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration,
-        org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 
 volumes:
   buildnation_pgdata:
+  buildnation_redisdata:

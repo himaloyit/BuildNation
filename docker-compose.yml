@@ -1,4 +1,21 @@
 services:
+  eureka-service-discovery:
+    build:
+      context: ./eureka-service-discovery
+      dockerfile: Dockerfile
+    container_name: buildnation-eureka
+    ports:
+      - "8761:8761"
+    environment:
+      EUREKA_INSTANCE_HOSTNAME: buildnation-eureka
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   postgres:
     image: postgres:15
     container_name: buildnation-postgres
@@ -58,12 +75,15 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      EUREKA_CLIENT_ENABLED: false
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
       SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      eureka-service-discovery:
         condition: service_healthy
     restart: unless-stopped
 
@@ -77,10 +97,13 @@ services:
     environment:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      EUREKA_CLIENT_ENABLED: "false"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
       GATEWAY_ROUTES_MEMBER-MANAGEMENT_URI: http://buildnation-member-management:8080
     depends_on:
       redis:
+        condition: service_healthy
+      eureka-service-discovery:
         condition: service_healthy
       member-management:
         condition: service_started

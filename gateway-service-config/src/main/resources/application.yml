@@ -31,9 +31,17 @@ resilience4j:
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 5
         sliding-window-type: COUNT_BASED
+      security-access-control:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 5
+        sliding-window-type: COUNT_BASED
   timelimiter:
     instances:
       member-management:
+        timeout-duration: 5s
+      security-access-control:
         timeout-duration: 5s
   retry:
     instances:
@@ -57,3 +65,5 @@ gateway:
   routes:
     member-management:
       uri: http://localhost:8080
+    security-access-control:
+      uri: http://localhost:8082

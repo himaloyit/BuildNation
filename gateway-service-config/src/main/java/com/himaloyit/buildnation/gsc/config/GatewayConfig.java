@@ -22,6 +22,9 @@ public class GatewayConfig {
     @Value("${gateway.routes.member-management.uri:http://localhost:8080}")
     private String memberManagementUri;
 
+    @Value("${gateway.routes.security-access-control.uri:http://localhost:8082}")
+    private String securityAccessControlUri;
+
     public GatewayConfig(RedisRateLimiter redisRateLimiter, KeyResolver keyResolver) {
         this.redisRateLimiter = redisRateLimiter;
         this.keyResolver = keyResolver;
@@ -60,6 +63,25 @@ public class GatewayConfig {
                                 .addRequestHeader("X-Gateway-Source", "buildnation-gateway")
                                 .addResponseHeader("X-Served-By", "buildnation-gateway"))
                         .uri(memberManagementUri))
+
+                // ── Security Access Control Route ────────────────────────────────
+                .route("security-access-control-route", r -> r
+                        .path("/api/v1/auth/**")
+                        .filters(f -> f
+                                // 1. Circuit Breaker — fallback dispatched internally via forward:
+                                .circuitBreaker(config -> config
+                                        .setName("security-access-control")
+                                        .setFallbackUri("forward:/fallback/generic"))
+
+                                // 2. Rate Limiter — Redis-backed; NO retry (login/register must never be retried)
+                                .requestRateLimiter(config -> config
+                                        .setRateLimiter(redisRateLimiter)
+                                        .setKeyResolver(keyResolver))
+
+                                // 3. Request / response headers
+                                .addRequestHeader("X-Gateway-Source", "buildnation-gateway")
+                                .addResponseHeader("X-Served-By", "buildnation-gateway"))
+                        .uri(securityAccessControlUri))
 
                 // ── Future route template ────────────────────────────────────────
                 // .route("constituency-management-route", r -> r

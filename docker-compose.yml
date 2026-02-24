@@ -67,6 +67,25 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  gateway-service-config:
+    build:
+      context: ./gateway-service-config
+      dockerfile: Dockerfile
+    container_name: buildnation-gateway
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      EUREKA_CLIENT_ENABLED: "false"
+      GATEWAY_ROUTES_MEMBER-MANAGEMENT_URI: http://buildnation-member-management:8080
+    depends_on:
+      redis:
+        condition: service_healthy
+      member-management:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   buildnation_pgdata:
   buildnation_redisdata:

@@ -1,32 +1,27 @@
 package com.himaloyit.buildnation.gsc.config;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 
 import java.time.Duration;
 
 @Configuration
-@PropertySource("classpath:services-url.properties")
+@EnableConfigurationProperties(ServiceUrlProperties.class)
 public class GatewayConfig {
 
-    @Value("${services.url.member-management}")
-    private String memberManagementUri;
-
-    @Value("${services.url.security-access-control}")
-    private String securityAccessControlUri;
-
+    private final ServiceUrlProperties serviceUrls;
     private final RedisRateLimiter redisRateLimiter;
     private final KeyResolver keyResolver;
 
-    public GatewayConfig(RedisRateLimiter redisRateLimiter, KeyResolver keyResolver) {
+    public GatewayConfig(ServiceUrlProperties serviceUrls, RedisRateLimiter redisRateLimiter, KeyResolver keyResolver) {
+        this.serviceUrls = serviceUrls;
         this.redisRateLimiter = redisRateLimiter;
         this.keyResolver = keyResolver;
     }
@@ -63,7 +58,7 @@ public class GatewayConfig {
                                 // 4. Request / response headers
                                 .addRequestHeader("X-Gateway-Source", "buildnation-gateway")
                                 .addResponseHeader("X-Served-By", "buildnation-gateway"))
-                        .uri(memberManagementUri))
+                        .uri(serviceUrls.getMemberManagement()))
 
                 // ── Security Access Control Route ────────────────────────────────
                 .route("security-access-control-route", r -> r
@@ -82,7 +77,7 @@ public class GatewayConfig {
                                 // 3. Request / response headers
                                 .addRequestHeader("X-Gateway-Source", "buildnation-gateway")
                                 .addResponseHeader("X-Served-By", "buildnation-gateway"))
-                        .uri(securityAccessControlUri))
+                        .uri(serviceUrls.getSecurityAccessControl()))
 
                 // ── Future route template ────────────────────────────────────────
                 // .route("constituency-management-route", r -> r

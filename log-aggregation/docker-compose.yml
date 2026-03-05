@@ -1,0 +1,91 @@
+# =============================================================================
+# BuildNation Log Aggregation Stack
+#
+# Components: Loki (log storage + retention) + Promtail (log shipper) + Grafana
+#
+# Usage:
+#   docker compose -f log-aggregation/docker-compose.yml up -d
+#
+# Access:
+#   Grafana → http://localhost:3001  (admin / admin)
+#   Loki    → http://localhost:3100  (API only)
+#
+# Log files are read from the project root via BUILDNATION_LOG_ROOT.
+# Default: ../  (one level up from log-aggregation/, i.e. BuildNation/)
+#
+# Service log paths (relative to project root):
+#   member-management/logs/member-management/app.log
+#   security-access-control/logs/security-access-control/app.log
+#   gateway-service-config/logs/gateway-service-config/app.log
+#   eureka-service-discovery/logs/eureka-service-discovery/app.log
+#
+# Linux Docker: add --add-host=host.docker.internal:host-gateway if needed.
+# =============================================================================
+
+services:
+
+  loki:
+    image: grafana/loki:3.1.0
+    container_name: buildnation-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/loki-config.yml
+    networks:
+      - buildnation-log-aggregation
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3100/ready | grep -q 'ready'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  promtail:
+    image: grafana/promtail:3.1.0
+    container_name: buildnation-promtail
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      # Mount project root so Promtail can read service log files.
+      # Override BUILDNATION_LOG_ROOT for Docker deployments where logs
+      # are in a different path (e.g., /var/log/buildnation).
+      - ${BUILDNATION_LOG_ROOT:-../}:/var/log/buildnation:ro
+      - promtail-positions:/tmp
+    command: -config.file=/etc/promtail/promtail-config.yml
+    depends_on:
+      loki:
+        condition: service_healthy
+    networks:
+      - buildnation-log-aggregation
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: buildnation-grafana-logs
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_FEATURE_TOGGLES_ENABLE=lokiExploreLogsEnabled
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-logs-data:/var/lib/grafana
+    depends_on:
+      loki:
+        condition: service_healthy
+    networks:
+      - buildnation-log-aggregation
+    restart: unless-stopped
+
+networks:
+  buildnation-log-aggregation:
+    driver: bridge
+
+volumes:
+  loki-data:
+  promtail-positions:
+  grafana-logs-data:

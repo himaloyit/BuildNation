@@ -1,0 +1,123 @@
+# =============================================================================
+# Promtail Configuration — BuildNation
+#
+# Tails log files written by each Spring Boot service and ships them to Loki.
+#
+# Log file location inside the container (mounted from host project root):
+#   /var/log/buildnation/<module>/logs/<service>/app.log
+#
+# Log pattern emitted by logback-spring.xml:
+#   yyyy-MM-dd HH:mm:ss.SSS [thread] [traceId] [spanId] [requestId] LEVEL logger - message
+#
+# Pipeline:
+#   1. regex  → extract timestamp, traceId, spanId, requestId, level, logger, message
+#   2. labels → promote level as a Loki label (enables label-based filtering)
+#   3. timestamp → parse and set Loki entry timestamp from the log line
+# =============================================================================
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    batchwait: 1s
+    batchsize: 1048576     # 1 MB
+    timeout: 10s
+
+scrape_configs:
+
+  # ── member-management ──────────────────────────────────────────────────────
+  - job_name: member-management
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: member-management
+          service: member-management
+          environment: local
+          __path__: /var/log/buildnation/member-management/logs/**/*.log
+    pipeline_stages:
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}'
+          max_wait_time: 3s
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[(?P<thread>[^\]]*)\] \[(?P<trace_id>[^\]]*)\] \[(?P<span_id>[^\]]*)\] \[(?P<request_id>[^\]]*)\] (?P<level>[A-Z]+)\s+(?P<logger>\S+) - (?P<message>.*)'
+      - labels:
+          level:
+          trace_id:
+          span_id:
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05.000'
+
+  # ── security-access-control ───────────────────────────────────────────────
+  - job_name: security-access-control
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: security-access-control
+          service: security-access-control
+          environment: local
+          __path__: /var/log/buildnation/security-access-control/logs/**/*.log
+    pipeline_stages:
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}'
+          max_wait_time: 3s
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[(?P<thread>[^\]]*)\] \[(?P<trace_id>[^\]]*)\] \[(?P<span_id>[^\]]*)\] \[(?P<request_id>[^\]]*)\] (?P<level>[A-Z]+)\s+(?P<logger>\S+) - (?P<message>.*)'
+      - labels:
+          level:
+          trace_id:
+          span_id:
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05.000'
+
+  # ── gateway-service-config ────────────────────────────────────────────────
+  - job_name: gateway-service-config
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: gateway-service-config
+          service: gateway-service-config
+          environment: local
+          __path__: /var/log/buildnation/gateway-service-config/logs/**/*.log
+    pipeline_stages:
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}'
+          max_wait_time: 3s
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[(?P<thread>[^\]]*)\] \[(?P<trace_id>[^\]]*)\] \[(?P<span_id>[^\]]*)\] \[(?P<request_id>[^\]]*)\] (?P<level>[A-Z]+)\s+(?P<logger>\S+) - (?P<message>.*)'
+      - labels:
+          level:
+          trace_id:
+          span_id:
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05.000'
+
+  # ── eureka-service-discovery ──────────────────────────────────────────────
+  - job_name: eureka-service-discovery
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: eureka-service-discovery
+          service: eureka-service-discovery
+          environment: local
+          __path__: /var/log/buildnation/eureka-service-discovery/logs/**/*.log
+    pipeline_stages:
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}'
+          max_wait_time: 3s
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[(?P<thread>[^\]]*)\] \[(?P<trace_id>[^\]]*)\] \[(?P<span_id>[^\]]*)\] \[(?P<request_id>[^\]]*)\] (?P<level>[A-Z]+)\s+(?P<logger>\S+) - (?P<message>.*)'
+      - labels:
+          level:
+          trace_id:
+          span_id:
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05.000'

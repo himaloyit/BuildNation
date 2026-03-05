@@ -14,6 +14,7 @@ import com.himaloyit.buildnation.mm.domain.model.UpdateMemberStatusRequest;
 import com.himaloyit.buildnation.mm.domain.repositories.iRepositories.IMemberRepository;
 import com.himaloyit.buildnation.mm.services.iServices.IMemberService;
 import com.himaloyit.buildnation.mm.util.exceptions.EntityNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
  * Author: Rajib Kumer Ghosh
  */
 
+@Slf4j
 @Service
 public class MemberService implements IMemberService {
 
@@ -45,6 +47,7 @@ public class MemberService implements IMemberService {
     @Override
     @CacheEvict(value = "members-list", allEntries = true)
     public MemberDTO createMember(CreateMemberRequest request) {
+        log.info("Creating member: email={}", request.getEmail());
         MemberProfile profile = MemberProfile.builder()
                 .dob(request.getDob() != null ? request.getDob().toString() : null)
                 .gender(request.getGender())
@@ -83,12 +86,14 @@ public class MemberService implements IMemberService {
                 .build();
 
         Member saved = iMemberRepository.save(member);
+        log.info("Member created: id={}, email={}", saved.getId(), saved.getEmail());
         return iMemberMapper.toDto(saved);
     }
 
     @Override
     @Cacheable(value = "members", key = "#id")
     public MemberDTO getMember(UUID id) {
+        log.debug("Fetching member: id={}", id);
         return iMemberRepository.findById(id)
                 .map(iMemberMapper::toDto)
                 .orElseThrow(() -> new EntityNotFoundException("Member not found with id: " + id));
@@ -113,6 +118,7 @@ public class MemberService implements IMemberService {
         evict = @CacheEvict(value = "members-list", allEntries = true)
     )
     public MemberDTO updateMember(UUID id, UpdateMemberRequest request) {
+        log.info("Updating member: id={}", id);
         Member member = iMemberRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Member not found with id: " + id));
 
@@ -122,7 +128,9 @@ public class MemberService implements IMemberService {
         if (request.getConstituencyId() != null) member.setConstituencyId(request.getConstituencyId());
         member.setUpdatedAt(LocalDateTime.now());
 
-        return iMemberMapper.toDto(iMemberRepository.save(member));
+        MemberDTO updated = iMemberMapper.toDto(iMemberRepository.save(member));
+        log.info("Member updated: id={}", id);
+        return updated;
     }
 
     @Override
@@ -131,10 +139,12 @@ public class MemberService implements IMemberService {
         @CacheEvict(value = "members-list", allEntries = true)
     })
     public void deleteMember(UUID id) {
+        log.info("Deleting member: id={}", id);
         if (!iMemberRepository.existsById(id)) {
             throw new EntityNotFoundException("Member not found with id: " + id);
         }
         iMemberRepository.deleteById(id);
+        log.info("Member deleted: id={}", id);
     }
 
     @Override
@@ -143,6 +153,7 @@ public class MemberService implements IMemberService {
         evict = @CacheEvict(value = "members-list", allEntries = true)
     )
     public MemberDTO updateMemberRole(UUID id, UpdateMemberRoleRequest request) {
+        log.info("Updating role: id={}, role={}", id, request.getRole());
         Member member = iMemberRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Member not found with id: " + id));
         member.setRole(request.getRole());
@@ -161,6 +172,7 @@ public class MemberService implements IMemberService {
         evict = @CacheEvict(value = "members-list", allEntries = true)
     )
     public MemberDTO updateMemberStatus(UUID id, UpdateMemberStatusRequest request) {
+        log.info("Updating status: id={}, status={}", id, request.getStatus());
         Member member = iMemberRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Member not found with id: " + id));
         member.setStatus(request.getStatus());

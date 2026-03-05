@@ -7,23 +7,24 @@ import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 
 import java.time.Duration;
 
 @Configuration
+@PropertySource("classpath:services-url.properties")
 public class GatewayConfig {
+
+    @Value("${services.url.member-management}")
+    private String memberManagementUri;
+
+    @Value("${services.url.security-access-control}")
+    private String securityAccessControlUri;
 
     private final RedisRateLimiter redisRateLimiter;
     private final KeyResolver keyResolver;
-
-    /** Allows Docker Compose (or any env) to override the downstream URI. */
-    @Value("${gateway.routes.member-management.uri:http://localhost:8080}")
-    private String memberManagementUri;
-
-    @Value("${gateway.routes.security-access-control.uri:http://localhost:8082}")
-    private String securityAccessControlUri;
 
     public GatewayConfig(RedisRateLimiter redisRateLimiter, KeyResolver keyResolver) {
         this.redisRateLimiter = redisRateLimiter;

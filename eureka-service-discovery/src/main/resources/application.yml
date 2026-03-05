@@ -7,7 +7,7 @@ server:
 
 eureka:
   instance:
-    hostname: localhost
+    hostname: ${EUREKA_HOSTNAME:eureka-service-discovery}
   client:
     # Standalone mode — do not register with or fetch from itself
     register-with-eureka: false
@@ -42,4 +42,4 @@ management:
       probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
   zipkin:
     tracing:
-      endpoint: ${ZIPKIN_URL:http://localhost:9411}/api/v2/spans
+      endpoint: ${ZIPKIN_URL:http://zipkin:9411}/api/v2/spans

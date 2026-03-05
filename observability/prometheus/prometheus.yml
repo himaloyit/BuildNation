@@ -1,0 +1,45 @@
+# =============================================================================
+# Prometheus scrape configuration for BuildNation microservices
+#
+# Services are scraped from the host via host.docker.internal.
+# For Docker Compose deployments where services share the same network,
+# replace host.docker.internal:<port> with <container-name>:<port>.
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    platform: buildnation
+
+scrape_configs:
+
+  - job_name: member-management
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - host.docker.internal:8080
+
+  - job_name: security-access-control
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - host.docker.internal:8082
+
+  - job_name: gateway-service-config
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - host.docker.internal:8081
+
+  - job_name: eureka-service-discovery
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - host.docker.internal:8761
+
+  # Prometheus self-monitoring
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090

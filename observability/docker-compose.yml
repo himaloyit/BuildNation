@@ -1,0 +1,75 @@
+# =============================================================================
+# BuildNation Observability Stack
+#
+# Starts: Prometheus (metrics) + Grafana (dashboards) + Zipkin (tracing)
+#
+# Usage:
+#   docker compose -f observability/docker-compose.yml up -d
+#
+# Access:
+#   Grafana   → http://localhost:3000   (admin / admin)
+#   Prometheus→ http://localhost:9090
+#   Zipkin    → http://localhost:9411
+#
+# App services (running on host) are scraped via host.docker.internal.
+# On Linux Docker: add --add-host=host.docker.internal:host-gateway
+#   docker compose -f observability/docker-compose.yml up -d \
+#     --add-host=host.docker.internal:host-gateway   (or set in extra_hosts below)
+# =============================================================================
+
+services:
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: buildnation-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    networks:
+      - buildnation-observability
+    restart: unless-stopped
+    # Linux only: uncomment to reach host services
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: buildnation-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - buildnation-observability
+    restart: unless-stopped
+
+  zipkin:
+    image: openzipkin/zipkin:3.3
+    container_name: buildnation-zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - buildnation-observability
+    restart: unless-stopped
+
+networks:
+  buildnation-observability:
+    driver: bridge
+
+volumes:
+  grafana-data:

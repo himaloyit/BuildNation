@@ -19,11 +19,27 @@ eureka:
     enable-self-preservation: false
     eviction-interval-timer-in-ms: 5000
 
+logging:
+  file:
+    name: logs/eureka-service-discovery/app.log
+
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, metrics
+        include: health, info, metrics, prometheus
   endpoint:
     health:
       show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  # Distributed Tracing (Zipkin) — override ZIPKIN_URL for Docker: http://zipkin:9411
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411}/api/v2/spans

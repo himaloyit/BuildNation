@@ -1,0 +1,27 @@
+# =============================================================================
+# Profile: k8s — Production  (Kubernetes-native service discovery)
+# Activate: SPRING_PROFILES_ACTIVE=k8s
+# Services are discovered via the Kubernetes API — no Eureka server is needed.
+# K8s Service names must match spring.application.name of each downstream service.
+# =============================================================================
+
+# Eureka — disabled
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+# Kubernetes discovery — enabled
+spring:
+  cloud:
+    kubernetes:
+      enabled: true
+      discovery:
+        enabled: true
+        # Discover services across all namespaces (set to false to restrict to pod's namespace)
+        all-namespaces: false
+      config:
+        enabled: false
+      secrets:
+        enabled: false

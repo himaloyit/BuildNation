@@ -321,3 +321,87 @@ Public             User	View manifesto, events, donate, submit feedback
 
     Deployment: Docker Compose or Kubernetes
 --------------------------------------END TS------------------------------------------
+
+
+claude --resume 3f8ce261-b727-4162-ae38-acc84387da9a
+
+
+
+
+*********************************Promt*************************************************
+-> Is it possible to use dynamically discovery service? Example:- in UAT I will use docker with eureka and in prod 
+	I will use kubernetes without changing code. If possible then implement that for all services.
+####################################################################################################################
+-> Question:- Add Observability as separate folder parallely beside gateway service for all services with Actuator, Prometheus, Grafana, Distributed tracing
+-->  Answer:-
+
+● All done. Here's the full summary:
+
+  ---                                                                                                                                                       What Was Implemented
+                                                                                                                                                            Folder structure created
+
+  BuildNation/
+    observability/                          ← new, sits alongside gateway/member-management/etc.
+      docker-compose.yml                    ← Prometheus + Grafana + Zipkin
+      prometheus/
+        prometheus.yml                      ← scrape configs for all 4 services
+      grafana/
+        provisioning/
+          datasources/
+            prometheus-datasource.yml       ← auto-provisions Prometheus + Zipkin datasources
+          dashboards/
+            dashboard-provider.yml          ← tells Grafana where to load dashboards from
+        dashboards/
+          buildnation-overview.json         ← pre-built dashboard (auto-loaded on start)
+
+  Dependencies added to all 4 services (Spring Boot BOM managed — no versions needed)
+
+  ┌─────────────────────────────────┬──────────────────────────────────────────────┐
+  │           Dependency            │                   Purpose                    │
+  ├─────────────────────────────────┼──────────────────────────────────────────────┤
+  │ micrometer-registry-prometheus  │ Exposes /actuator/prometheus scrape endpoint │
+  ├─────────────────────────────────┼──────────────────────────────────────────────┤
+  │ micrometer-tracing-bridge-brave │ Distributed tracing instrumentation          │
+  ├─────────────────────────────────┼──────────────────────────────────────────────┤
+  │ zipkin-reporter-brave           │ Ships traces to Zipkin                       │
+  └─────────────────────────────────┴──────────────────────────────────────────────┘
+
+  Config added to all 4 services
+
+  - management.endpoints.web.exposure.include → adds prometheus
+  - management.metrics.tags.application → tags all metrics with service name
+  - management.tracing.sampling.probability → 100% by default, override with TRACING_SAMPLING_PROBABILITY
+  - management.zipkin.tracing.endpoint → defaults to http://localhost:9411, override with ZIPKIN_URL
+
+  Grafana dashboard panels
+
+  1. Service Health — UP/DOWN stat per service
+  2. HTTP Request Rate — req/s by service
+  3. HTTP 5xx Error Rate — errors/s by service
+  4. Response Time P95 & P99 — latency percentiles
+  5. JVM Heap Memory — used vs max
+  6. Process CPU Usage
+  7. JVM Live Threads
+  8. GC Pause Rate
+
+  To start the observability stack
+
+  docker compose -f observability/docker-compose.yml up -d
+
+  ┌────────────┬───────────────────────┬───────────────┐
+  │    Tool    │          URL          │  Credentials  │
+  ├────────────┼───────────────────────┼───────────────┤
+  │ Grafana    │ http://localhost:3000 │ admin / admin │
+  ├────────────┼───────────────────────┼───────────────┤
+  │ Prometheus │ http://localhost:9090 │ —             │
+  ├────────────┼───────────────────────┼───────────────┤
+  │ Zipkin     │ http://localhost:9411 │ —             │
+  └────────────┴───────────────────────┴───────────────┘
+
+  For Docker deployments (services in containers)
+
+  Set these env vars on your app containers:
+  ZIPKIN_URL=http://host.docker.internal:9411   # or http://zipkin:9411 if on same network
+  TRACING_SAMPLING_PROBABILITY=0.1              # 10% in production
+
+####################################################################################################################

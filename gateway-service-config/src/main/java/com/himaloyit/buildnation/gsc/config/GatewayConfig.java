@@ -79,6 +79,37 @@ public class GatewayConfig {
                                 .addResponseHeader("X-Served-By", "buildnation-gateway"))
                         .uri(serviceUrls.getSecurityAccessControl()))
 
+                // ── Constituency Development Management Route ───────────────────
+                .route("constituency-development-management-route", r -> r
+                        .path("/api/v1/districts/**", "/api/v1/upazilas/**", "/api/v1/unions/**",
+                                "/api/v1/wards/**", "/api/v1/villages/**")
+                        .filters(f -> f
+                                // 1. Circuit Breaker — fallback dispatched internally via forward:
+                                .circuitBreaker(config -> config
+                                        .setName("constituency-development-management")
+                                        .setFallbackUri("forward:/fallback/generic"))
+
+                                // 2. Retry — GET only; backs off exponentially 1 s → 5 s (factor 2, jitter)
+                                .retry(config -> config
+                                        .setRetries(3)
+                                        .setMethods(HttpMethod.GET)
+                                        .setStatuses(HttpStatus.BAD_GATEWAY, HttpStatus.SERVICE_UNAVAILABLE)
+                                        .setBackoff(
+                                                Duration.ofSeconds(1),
+                                                Duration.ofSeconds(5),
+                                                2,
+                                                true))
+
+                                // 3. Rate Limiter — Redis-backed; uses injected beans
+                                .requestRateLimiter(config -> config
+                                        .setRateLimiter(redisRateLimiter)
+                                        .setKeyResolver(keyResolver))
+
+                                // 4. Request / response headers
+                                .addRequestHeader("X-Gateway-Source", "buildnation-gateway")
+                                .addResponseHeader("X-Served-By", "buildnation-gateway"))
+                        .uri(serviceUrls.getConstituencyDevelopmentManagement()))
+
                 // ── Future route template ────────────────────────────────────────
                 // .route("constituency-management-route", r -> r
                 //         .path("/api/v1/constituencies/**")

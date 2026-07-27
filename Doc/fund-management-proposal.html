@@ -1,0 +1,672 @@
+<title>Constituency Development Fund — Architecture Proposal</title>
+<style>
+  :root {
+    --ink: #1c2430;
+    --muted: #5b6472;
+    --paper: #f3f4f1;
+    --surface: #fbfbf9;
+    --surface-line: #e7e8e3;
+    --rule: #d8d9d4;
+    --accent: #93641a;
+    --accent-deep: #7a5716;
+    --accent-soft: #ece1c8;
+    --good: #2f6b4f;
+    --good-soft: #dde9e2;
+    --warn: #a8621c;
+    --warn-soft: #f1e2ce;
+    --crit: #a3392f;
+    --crit-soft: #f3dcd9;
+    --info: #3b5b7a;
+    --info-soft: #dce4ec;
+    --neutral-soft: #e6e7e3;
+    --shadow: 0 1px 2px rgba(28,36,48,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e7e9ee;
+      --muted: #9aa3b2;
+      --paper: #10141b;
+      --surface: #181e27;
+      --surface-line: #262e39;
+      --rule: #2b323d;
+      --accent: #d3a44a;
+      --accent-deep: #e7be6e;
+      --accent-soft: #362c17;
+      --good: #6aa387;
+      --good-soft: #1c2b24;
+      --warn: #d0985a;
+      --warn-soft: #33281a;
+      --crit: #d18178;
+      --crit-soft: #34201d;
+      --info: #85a6c4;
+      --info-soft: #1c2733;
+      --neutral-soft: #232a34;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e7e9ee; --muted: #9aa3b2; --paper: #10141b; --surface: #181e27;
+    --surface-line: #262e39; --rule: #2b323d; --accent: #d3a44a; --accent-deep: #e7be6e;
+    --accent-soft: #362c17; --good: #6aa387; --good-soft: #1c2b24; --warn: #d0985a;
+    --warn-soft: #33281a; --crit: #d18178; --crit-soft: #34201d; --info: #85a6c4;
+    --info-soft: #1c2733; --neutral-soft: #232a34; --shadow: 0 1px 2px rgba(0,0,0,0.35);
+  }
+  :root[data-theme="light"] {
+    --ink: #1c2430; --muted: #5b6472; --paper: #f3f4f1; --surface: #fbfbf9;
+    --surface-line: #e7e8e3; --rule: #d8d9d4; --accent: #93641a; --accent-deep: #7a5716;
+    --accent-soft: #ece1c8; --good: #2f6b4f; --good-soft: #dde9e2; --warn: #a8621c;
+    --warn-soft: #f1e2ce; --crit: #a3392f; --crit-soft: #f3dcd9; --info: #3b5b7a;
+    --info-soft: #dce4ec; --neutral-soft: #e6e7e3; --shadow: 0 1px 2px rgba(28,36,48,0.06);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Avenir Next", "Century Gothic", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--accent-soft); }
+
+  h1, h2, h3 { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; text-wrap: balance; color: var(--ink); }
+  .mono { font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  .page { max-width: 920px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---- Letterhead ---- */
+  header.letterhead {
+    padding: 48px 0 28px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  h1.title {
+    margin: 10px 0 8px;
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 600;
+    line-height: 1.15;
+  }
+  p.subtitle {
+    margin: 0 0 22px;
+    max-width: 62ch;
+    color: var(--muted);
+    font-size: 17px;
+  }
+  .memo-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px 36px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule);
+  }
+  .memo-meta dl { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+  .memo-meta dt {
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+  }
+  .memo-meta dd { margin: 0; font-size: 14px; }
+
+  /* ---- TOC ---- */
+  nav.toc {
+    margin: 36px 0 8px;
+    background: var(--surface);
+    border: 1px solid var(--surface-line);
+    border-radius: 3px;
+    padding: 22px 26px;
+    box-shadow: var(--shadow);
+  }
+  nav.toc h2 {
+    margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em;
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace; color: var(--muted); font-weight: 600;
+  }
+  nav.toc ol { columns: 2; column-gap: 32px; margin: 0; padding-left: 0; list-style: none; }
+  nav.toc li { break-inside: avoid; margin-bottom: 8px; font-size: 14.5px; }
+  nav.toc a { color: var(--ink); text-decoration: none; border-bottom: 1px solid transparent; }
+  nav.toc a:hover { border-bottom-color: var(--accent); color: var(--accent-deep); }
+  nav.toc .num { color: var(--accent); font-weight: 600; margin-right: 6px; font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace; }
+
+  /* ---- Sections ---- */
+  section { margin-top: 56px; scroll-margin-top: 20px; }
+  section .kicker {
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+    font-size: 12px; letter-spacing: 0.1em; color: var(--accent); font-weight: 600;
+  }
+  section h2 { font-size: 24px; margin: 4px 0 6px; }
+  section .lede { color: var(--muted); max-width: 68ch; margin: 0 0 20px; }
+  section hr.divider { border: none; border-top: 1px solid var(--rule); margin: 56px 0 0; }
+
+  p { max-width: 68ch; }
+  .full-bleed { max-width: none; }
+
+  a { color: var(--accent-deep); }
+
+  /* ---- Tables ---- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--surface-line); border-radius: 3px; background: var(--surface); box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  thead th {
+    text-align: left; font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+    padding: 10px 14px; border-bottom: 1px solid var(--rule); white-space: nowrap;
+  }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid var(--surface-line); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td.num, td.code { font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+  tbody td small.hint { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+
+  /* ---- Figures / diagrams ---- */
+  figure.diagram {
+    margin: 22px 0 8px;
+    border: 1px solid var(--surface-line);
+    background: var(--surface);
+    border-radius: 3px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  figure.diagram pre.mermaid { margin: 0; }
+  figcaption {
+    margin-top: 10px;
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+  }
+
+  /* ---- Status pills ---- */
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 2px; font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+    font-weight: 600; letter-spacing: 0.02em; white-space: nowrap;
+  }
+  .pill.neutral { background: var(--neutral-soft); color: var(--muted); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.info { background: var(--info-soft); color: var(--info); }
+  .pill.accent { background: var(--accent-soft); color: var(--accent-deep); }
+  .pill.good { background: var(--good-soft); color: var(--good); }
+  .pill.crit { background: var(--crit-soft); color: var(--crit); }
+
+  /* ---- Callouts ---- */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    padding: 14px 18px;
+    border-radius: 0 3px 3px 0;
+    margin: 20px 0;
+    max-width: 68ch;
+  }
+  .callout p { margin: 0; }
+  .callout .label { font-weight: 700; color: var(--accent-deep); font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace; display: block; margin-bottom: 6px; }
+
+  ul.spec, ol.spec { max-width: 68ch; padding-left: 20px; }
+  ul.spec li, ol.spec li { margin-bottom: 6px; }
+
+  .in-out { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 640px) { .in-out { grid-template-columns: 1fr; } nav.toc ol { columns: 1; } }
+  .in-out .col { border: 1px solid var(--surface-line); border-radius: 3px; padding: 16px 18px; background: var(--surface); }
+  .in-out .col.in { border-left: 3px solid var(--good); }
+  .in-out .col.out { border-left: 3px solid var(--muted); }
+  .in-out h4 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace; }
+  .in-out ul { margin: 0; padding-left: 18px; font-size: 14.5px; }
+  .in-out li { margin-bottom: 6px; }
+
+  footer.colophon {
+    margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 12.5px;
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+  }
+
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="page">
+  <header class="letterhead">
+    <div class="eyebrow">Build Nation — Platform Architecture Note</div>
+    <h1 class="title">Public Development Fund Management</h1>
+    <p class="subtitle">A single-service design for automating the MP constituency development fund — from priority queue to final payment — fitted to the conventions already running in BuildNation.</p>
+    <div class="memo-meta">
+      <dl><dt>Reference</dt><dd class="mono">BN-CDF-2026-01</dd></dl>
+      <dl><dt>Constituency</dt><dd>Magura-2, Bangladesh</dd></dl>
+      <dl><dt>Prepared</dt><dd>26 July 2026</dd></dl>
+      <dl><dt>Status</dt><dd><span class="pill warn">Proposal — for review</span></dd></dl>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><span class="num">01</span><a href="#recommendation">Recommendation</a></li>
+      <li><span class="num">02</span><a href="#architecture">System architecture</a></li>
+      <li><span class="num">03</span><a href="#er">Database ER diagram</a></li>
+      <li><span class="num">04</span><a href="#microservices">Microservice design</a></li>
+      <li><span class="num">05</span><a href="#tables">Tables &amp; relationships</a></li>
+      <li><span class="num">06</span><a href="#api">REST API design</a></li>
+      <li><span class="num">07</span><a href="#rbac">Roles &amp; permissions</a></li>
+      <li><span class="num">08</span><a href="#workflow">Workflow diagrams</a></li>
+      <li><span class="num">09</span><a href="#roadmap">Development roadmap</a></li>
+      <li><span class="num">10</span><a href="#mvp">MVP plan</a></li>
+      <li><span class="num">11</span><a href="#ai">Future AI features</a></li>
+    </ol>
+  </nav>
+
+  <section id="recommendation">
+    <div class="kicker">01 — Recommendation</div>
+    <h2>One new service, not five</h2>
+    <p class="lede">Every entity in your write-up could become its own microservice — project, fund, contractor, work order, payment, inspection. That's over-fragmentation for a domain this tightly coupled. The fund→project→work-order→payment chain shares one transactional rhythm and one audience of internal staff, so it should live in one deployable, not five.</p>
+    <p>A four-way split (fund / project / contractor / work-order) still pays a network hop and an eventual-consistency tax for writes that are really one business transaction — allocating a fund, issuing a work order, releasing a payment all touch the same aggregate. Folding the location hierarchy in too (rather than standing it up as its own reused module) removes another hop, since a project can't be registered without a village. The result is <strong>constituency-development-management</strong>: one service, one schema, one deployment — plus an extension to the auth module for dynamic roles and audit. Details below.</p>
+    <p>Two things still stay separate, for reasons that don't apply to the domain services above: <strong>security-access-control</strong> is a different audience (platform-wide identity, not fund-specific) and already exists as a running service. <strong>analytics-reporting</strong> is a different lifecycle (read-side dashboards that can lag behind writes and scale independently of the transactional core).</p>
+    <div class="callout">
+      <span class="label">Where this document departs from your list</span>
+      <p>Your outline separates "inspection" as step 8. I've folded it into the work-order/payment package as a gate on the final milestone, since an inspection with no work order to close doesn't do anything on its own — splitting it out would mean an extra round-trip for every payment release even within one service.</p>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="kicker">02 — System Architecture</div>
+    <h2>Service map</h2>
+    <p class="lede">The new service registers with Eureka and sits behind the existing gateway like member-management does today. Kafka is now only needed for what's genuinely cross-service: publishing domain events (fund allocated, project status changed, payment approved) so analytics-reporting stays eventually-consistent and security-access-control can build its audit log — the fund→project→work-order chain itself is in-process, not choreographed over Kafka.</p>
+    <figure class="diagram full-bleed">
+      <pre class="mermaid">
+flowchart TB
+  WEB["build-nation-web-portal"] --> GW["gateway-service-config"]
+  GW --> AUTH["security-access-control"]
+  GW --> CDM["constituency-development-management"]
+  GW --> AN["analytics-reporting"]
+
+  EUR[("eureka-service-discovery")]
+  CDM -.-> EUR
+  AUTH -.-> EUR
+  AN -.-> EUR
+
+  KAFKA[["Kafka"]]
+  CDM -- ProjectStatusChanged / FundAllocated / WorkOrderCreated / PaymentApproved --> KAFKA
+  KAFKA --> AN
+  KAFKA --> AUTH
+
+  CDM --> S3[("MinIO / S3")]
+  CDM --> REDIS[("Redis")]
+  AN --> REDIS
+
+  PG[("PostgreSQL — one schema per service")]
+  CDM --> PG
+  AUTH --> PG
+      </pre>
+      <figcaption>Fig. 1 — Service topology: one new domain service, reusing the existing gateway, Eureka, Kafka and Redis</figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Service</th><th>Owns</th><th>Package suffix</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>constituency-development-management</td><td>Location hierarchy (District→Upazila→Union→Ward→Village), development categories, fund periods &amp; allocations, projects &amp; priority queue, contractors, work orders, milestone payments, inspections</td><td class="code">cdm</td><td><span class="pill accent">new</span></td></tr>
+          <tr><td>security-access-control</td><td>+ dynamic Role/Permission, audit log consumer</td><td class="code">sac</td><td><span class="pill warn">extend existing</span></td></tr>
+          <tr><td>analytics-reporting</td><td>Fund, project and category dashboards</td><td class="code">ar</td><td><span class="pill neutral">reuse planned module</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="er">
+    <div class="kicker">03 — Database ER Diagram</div>
+    <h2>Core entities</h2>
+    <p class="lede">Every box below is owned by constituency-development-management and lives in the same schema, so project→sub_category, project→village, work_order→project and work_order→contractor are real foreign keys enforced by Postgres, not resolved over the network. The one exception is <span class="code mono">submitted_by</span> / <span class="code mono">inspector_id</span> — those point at users owned by security-access-control, so they stay plain UUID columns resolved by calling that service or reading its Kafka event.</p>
+    <figure class="diagram full-bleed">
+      <pre class="mermaid">
+erDiagram
+  CONS_DISTRICT ||--o{ CONS_UPAZILA : contains
+  CONS_UPAZILA ||--o{ CONS_UNION : contains
+  CONS_UNION ||--o{ CONS_WARD : contains
+  CONS_WARD ||--o{ CONS_VILLAGE : contains
+  CONS_DEVELOPMENT_CATEGORY ||--o{ CONS_DEVELOPMENT_SUB_CATEGORY : has
+  CONS_DEVELOPMENT_SUB_CATEGORY ||--o{ CONS_PROJECT : classifies
+  CONS_VILLAGE ||--o{ CONS_PROJECT : "located in"
+  CONS_PROJECT ||--o{ CONS_PROJECT_DOCUMENT : has
+  CONS_FUND_PERIOD ||--o{ CONS_FUND_CATEGORY_ALLOCATION : earmarks
+  CONS_DEVELOPMENT_CATEGORY ||--o{ CONS_FUND_CATEGORY_ALLOCATION : "earmarked for"
+  CONS_FUND_PERIOD ||--o{ CONS_FUND_ALLOCATION : distributes
+  CONS_PROJECT ||--o| CONS_FUND_ALLOCATION : receives
+  CONS_PROJECT ||--o| CONS_WORK_ORDER : generates
+  CONS_CONTRACTOR ||--o{ CONS_WORK_ORDER : fulfills
+  CONS_WORK_ORDER ||--o{ CONS_PAYMENT_MILESTONE : "paid in"
+  CONS_WORK_ORDER ||--o{ CONS_INSPECTION : "verified by"
+
+  CONS_PROJECT {
+    uuid id PK
+    string project_code
+    string name
+    uuid sub_category_id FK
+    uuid village_id FK
+    numeric estimated_cost
+    string current_condition
+    int priority_score
+    int priority_rank
+    uuid submitted_by
+    string status
+  }
+  CONS_FUND_PERIOD {
+    uuid id PK
+    int month
+    int year
+    numeric total_amount
+  }
+  CONS_FUND_ALLOCATION {
+    uuid id PK
+    uuid fund_period_id FK
+    uuid project_id FK
+    numeric allocated_amount
+    date allocated_at
+  }
+  CONS_CONTRACTOR {
+    uuid id PK
+    string name
+    string type
+    string license_no
+    string bank_account_no
+  }
+  CONS_WORK_ORDER {
+    uuid id PK
+    string work_order_no
+    uuid project_id FK
+    uuid contractor_id FK
+    numeric amount
+    date start_date
+    date end_date
+    string status
+  }
+  CONS_PAYMENT_MILESTONE {
+    uuid id PK
+    uuid work_order_id FK
+    string milestone_type
+    numeric percentage
+    numeric amount
+    string status
+    string voucher_no
+  }
+  CONS_INSPECTION {
+    uuid id PK
+    uuid work_order_id FK
+    uuid inspector_id
+    int progress_percentage
+    string quality_rating
+    boolean approved
+  }
+      </pre>
+      <figcaption>Fig. 2 — Core fund/project/work-order schema</figcaption>
+    </figure>
+
+    <h2 style="margin-top:40px;">Auth extension</h2>
+    <p class="lede">The current <span class="code mono">UserRole</span> enum (SUPER_ADMIN, ADMIN, MEMBER, VOLUNTEER, VIEWER) can't hold "dynamic roles" — enums are compiled, not admin-configurable. This becomes a real table.</p>
+    <figure class="diagram full-bleed">
+      <pre class="mermaid">
+erDiagram
+  ROLE ||--o{ ROLE_PERMISSION : grants
+  PERMISSION ||--o{ ROLE_PERMISSION : "granted via"
+  ROLE ||--o{ USER_ROLE : "assigned as"
+  SAC_USERS ||--o{ USER_ROLE : holds
+  SAC_USERS ||--o{ AUDIT_LOG : performs
+
+  ROLE {
+    uuid id PK
+    string name
+    string description
+    boolean is_system_role
+  }
+  PERMISSION {
+    uuid id PK
+    string name
+    string resource
+    string action
+  }
+  AUDIT_LOG {
+    uuid id PK
+    string service_name
+    string entity_name
+    string entity_id
+    string field_name
+    string old_value
+    string new_value
+    uuid changed_by
+    datetime changed_at
+    string action
+  }
+      </pre>
+      <figcaption>Fig. 3 — Dynamic RBAC + centralized audit log, both in security-access-control</figcaption>
+    </figure>
+  </section>
+
+  <section id="microservices">
+    <div class="kicker">04 — Microservice Design</div>
+    <h2>One deployable, five internal packages</h2>
+    <p class="lede">constituency-development-management follows the same layering as member-management (<span class="code mono">domain/entities</span>, <span class="code mono">domain/dto</span>, <span class="code mono">services/iServices</span> + <span class="code mono">services/impl</span>, <span class="code mono">controllers/rest</span>) but with the domain split into sibling sub-packages instead of sibling services. The boundary between them is a Java package, not a network call — so it costs nothing to keep them cleanly separated, and nothing stops a later extraction if one genuinely needs to scale independently.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Package</th><th>Owns</th><th>Why grouped, not split into its own service</th></tr></thead>
+        <tbody>
+          <tr><td class="code">com.himaloyit.buildnation.cdm.region</td><td>District → Village hierarchy</td><td>Read-heavy reference data every other package needs; no reason to pay a network call to resolve a village.</td></tr>
+          <tr><td class="code">com.himaloyit.buildnation.cdm.fund</td><td>Fund periods, category earmarks, allocations, ledger</td><td>An allocation is meaningless without the period it draws from and the category it's earmarked against — same aggregate, same transaction.</td></tr>
+          <tr><td class="code">com.himaloyit.buildnation.cdm.project</td><td>Categories, projects, priority queue, status</td><td>Priority rank is a computed property of the project list itself (re-ranking one project re-ranks the queue) — keeping it out-of-process would mean a distributed transaction for every reorder.</td></tr>
+          <tr><td class="code">com.himaloyit.buildnation.cdm.contractor</td><td>Contractors, NGOs, committees, work history</td><td>Own onboarding/licensing lifecycle, but still referenced synchronously and cheaply by work orders since it's an in-process call.</td></tr>
+          <tr><td class="code">com.himaloyit.buildnation.cdm.workorder</td><td>Work orders, milestone payments, inspections</td><td>An inspection's only purpose is gating the next payment milestone; a payment's only purpose is fulfilling a work order — approving a milestone and flipping the project's status now happens in one <span class="code mono">@Transactional</span> method instead of three network calls.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Cross-package calls inside the service are plain Java method calls on the owning package's service interface (e.g. <span class="code mono">workorder</span> calling <span class="code mono">IContractorService</span> to validate a contractor before issuing a work order) — no REST, no retries, no timeouts. Kafka is reserved for what actually needs to leave the service: publishing domain events for analytics-reporting and the audit trail in security-access-control.</p>
+  </section>
+
+  <section id="tables">
+    <div class="kicker">05 — Tables &amp; Relationships</div>
+    <h2>Key tables per service</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Table</th><th>Service</th><th>Notable relationships</th></tr></thead>
+        <tbody>
+          <tr><td class="code">cons_district / cons_upazila / cons_union / cons_ward / cons_village</td><td>constituency-development-management</td><td>Self-nesting chain, each level FK's its parent</td></tr>
+          <tr><td class="code">cons_development_category / cons_development_sub_category</td><td>constituency-development-management</td><td>Sub-category FKs category</td></tr>
+          <tr><td class="code">cons_project / cons_project_document</td><td>constituency-development-management</td><td>Project FKs sub_category and village (real FKs, same schema); document FKs project</td></tr>
+          <tr><td class="code">cons_fund_period / cons_fund_category_allocation / cons_fund_allocation</td><td>constituency-development-management</td><td>Category allocation FKs period; project allocation FKs period and FKs project directly</td></tr>
+          <tr><td class="code">cons_contractor / cons_contractor_work_history</td><td>constituency-development-management</td><td>History row FKs work_order directly (same schema)</td></tr>
+          <tr><td class="code">cons_work_order / cons_payment_milestone / cons_inspection</td><td>constituency-development-management</td><td>Milestone and inspection both FK work_order; work_order FKs project + contractor directly</td></tr>
+          <tr><td class="code">role / permission / role_permission / user_role</td><td>security-access-control</td><td>Replaces the single <span class="code mono">UserRole</span> enum FK with a many-to-many</td></tr>
+          <tr><td class="code">audit_log</td><td>security-access-control</td><td>Populated by a Kafka consumer reading domain events from constituency-development-management</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <span class="label">Cross-service references</span>
+      <p>Because the whole fund→project→contractor→work-order domain now lives in one schema, those relationships can be real foreign keys with real referential integrity — no more UUID-only links to resolve at read time. The one genuine cross-service reference left is a user id (<span class="code mono">submitted_by</span>, <span class="code mono">inspector_id</span>, <span class="code mono">changed_by</span>) pointing into security-access-control; that one stays a plain UUID, resolved by calling that service or reading its Kafka event, since it's the one boundary that's still a real network hop.</p>
+    </div>
+  </section>
+
+  <section id="api">
+    <div class="kicker">06 — REST API Design</div>
+    <h2>Endpoints, following your existing conventions</h2>
+    <p class="lede">Same shape as member-management: <span class="code mono">/api/v1/{resource}</span>, wrapped in <span class="code mono">ApiResponse&lt;T&gt;</span>, paginated list endpoints where the resource can grow past a page.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="code">POST</td><td class="code">/api/v1/funds</td><td>Open a monthly fund period<small class="hint">constituency-development-management — fund package</small></td></tr>
+          <tr><td class="code">POST</td><td class="code">/api/v1/funds/{id}/category-allocations</td><td>Earmark part of a period to a category</td></tr>
+          <tr><td class="code">POST</td><td class="code">/api/v1/funds/{id}/allocations</td><td>Allocate to a specific project</td></tr>
+          <tr><td class="code">GET</td><td class="code">/api/v1/funds/{id}/ledger</td><td>Received / allocated / spent / remaining, with history</td></tr>
+          <tr><td class="code">POST</td><td class="code">/api/v1/projects</td><td>Register a project<small class="hint">constituency-development-management — project package</small></td></tr>
+          <tr><td class="code">GET</td><td class="code">/api/v1/projects/priority-queue?category=</td><td>Ranked, unfunded queue for a category</td></tr>
+          <tr><td class="code">PATCH</td><td class="code">/api/v1/projects/{id}/priority</td><td>Re-score / re-rank a project</td></tr>
+          <tr><td class="code">PATCH</td><td class="code">/api/v1/projects/{id}/status</td><td>Drive the status state machine (Fig. 4)</td></tr>
+          <tr><td class="code">POST</td><td class="code">/api/v1/projects/{id}/documents</td><td>Attach a photo/document (stored in MinIO)</td></tr>
+          <tr><td class="code">POST</td><td class="code">/api/v1/contractors</td><td>Onboard a contractor / NGO / committee<small class="hint">constituency-development-management — contractor package</small></td></tr>
+          <tr><td class="code">GET</td><td class="code">/api/v1/contractors/{id}/history</td><td>Prior work orders and ratings</td></tr>
+          <tr><td class="code">POST</td><td class="code">/api/v1/work-orders</td><td>Issue a work order against an approved project<small class="hint">constituency-development-management — workorder package</small></td></tr>
+          <tr><td class="code">POST</td><td class="code">/api/v1/work-orders/{id}/payments</td><td>Request a milestone payment (advance/progress/final)</td></tr>
+          <tr><td class="code">PATCH</td><td class="code">/api/v1/work-orders/{id}/payments/{paymentId}/approve</td><td>Approve and issue a voucher</td></tr>
+          <tr><td class="code">POST</td><td class="code">/api/v1/work-orders/{id}/inspections</td><td>Record an inspection, gating the next milestone</td></tr>
+          <tr><td class="code">GET</td><td class="code">/api/v1/dashboards/fund</td><td>Total / allocated / spent / remaining<small class="hint">analytics-reporting</small></td></tr>
+          <tr><td class="code">GET</td><td class="code">/api/v1/dashboards/projects?groupBy=category</td><td>Category-wise breakdown</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="rbac">
+    <div class="kicker">07 — Roles &amp; Permissions</div>
+    <h2>What changes in security-access-control</h2>
+    <p class="lede">Seed the existing enum values as rows in the new <span class="code mono">role</span> table first — that's a zero-downtime migration for member-management — then add the fund-specific roles alongside them. From then on, roles are admin-managed data, not a redeploy.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Role</th><th>Typical permissions</th><th>Origin</th></tr></thead>
+        <tbody>
+          <tr><td>SUPER_ADMIN, ADMIN, MEMBER, VOLUNTEER, VIEWER</td><td>Unchanged</td><td><span class="pill neutral">migrated from enum</span></td></tr>
+          <tr><td>MP_MINISTER</td><td>Approve projects, approve top-of-queue funding</td><td><span class="pill accent">new</span></td></tr>
+          <tr><td>CONS_PROJECT_OFFICER</td><td>Register projects, manage priority inputs, request work orders</td><td><span class="pill accent">new</span></td></tr>
+          <tr><td>ENGINEER</td><td>Endorse projects, record inspections</td><td><span class="pill accent">new</span></td></tr>
+          <tr><td>FINANCE_OFFICER</td><td>Allocate funds, approve payments, issue vouchers</td><td><span class="pill accent">new</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="spec">
+      <li><strong>Table shape:</strong> <span class="code mono">role</span>, <span class="code mono">permission</span> (resource + action), <span class="code mono">role_permission</span>, and <span class="code mono">user_role</span> as a many-to-many — a user can hold Engineer on one constituency and Viewer platform-wide.</li>
+      <li><strong>JWT claim:</strong> replace the single <span class="code mono">role</span> claim with a <span class="code mono">roles</span> array; authorize with <span class="code mono">@PreAuthorize</span> against resource/action strings, not role names, so new roles never need a code change downstream.</li>
+      <li><strong>Audit trail:</strong> every write service publishes a domain event (project changed, allocation made, payment approved) to a Kafka <span class="code mono">audit-events</span> topic; security-access-control consumes it and writes <span class="code mono">audit_log</span> rows — one place to query "who changed what," no service needs direct write access to another's audit table.</li>
+    </ul>
+  </section>
+
+  <section id="workflow">
+    <div class="kicker">08 — Workflow Diagrams</div>
+    <h2>Project status lifecycle</h2>
+    <figure class="diagram full-bleed">
+      <pre class="mermaid">
+stateDiagram-v2
+  [*] --> NEW
+  NEW --> PENDING_APPROVAL
+  PENDING_APPROVAL --> APPROVED
+  APPROVED --> ALLOCATED
+  ALLOCATED --> RUNNING
+  RUNNING --> INSPECTION
+  INSPECTION --> RUNNING : revisions requested
+  INSPECTION --> COMPLETED
+  COMPLETED --> [*]
+  NEW --> CANCELLED
+  PENDING_APPROVAL --> CANCELLED
+  APPROVED --> CANCELLED
+  ALLOCATED --> CANCELLED
+  RUNNING --> CANCELLED
+  CANCELLED --> [*]
+      </pre>
+      <figcaption>Fig. 4 — Project status state machine</figcaption>
+    </figure>
+
+    <p style="margin-top:8px;">
+      <span class="pill neutral">NEW</span>
+      <span class="pill warn">PENDING_APPROVAL</span>
+      <span class="pill info">APPROVED</span>
+      <span class="pill accent">ALLOCATED</span>
+      <span class="pill info">RUNNING</span>
+      <span class="pill warn">INSPECTION</span>
+      <span class="pill good">COMPLETED</span>
+      <span class="pill crit">CANCELLED</span>
+    </p>
+
+    <h2 style="margin-top:44px;">Fund-to-payment sequence</h2>
+    <figure class="diagram full-bleed">
+      <pre class="mermaid">
+sequenceDiagram
+  actor PO as Project Officer
+  actor ENG as Engineer
+  actor MP as MP / Minister
+  actor FIN as Finance Officer
+  participant CDM as constituency-development-management
+  actor CONTR as Contractor
+
+  PO->>CDM: Register project + priority inputs
+  CDM->>CDM: Compute priority score and rank
+  ENG->>CDM: Endorse
+  MP->>CDM: Approve top-ranked projects
+  FIN->>CDM: Allocate from monthly fund
+  note over CDM: same transaction: allocation + project status update
+  FIN->>CDM: Create work order for contractor
+  CONTR->>CDM: Accept work order
+  FIN->>CDM: Release advance payment (30%)
+  ENG->>CDM: Progress inspection
+  FIN->>CDM: Release progress payment (40%)
+  ENG->>CDM: Final inspection and approval
+  FIN->>CDM: Release final payment (30%)
+  note over CDM: same transaction: payment + project status → COMPLETED
+      </pre>
+      <figcaption>Fig. 5 — End-to-end flow from priority queue to final payment</figcaption>
+    </figure>
+  </section>
+
+  <section id="roadmap">
+    <div class="kicker">09 — Development Roadmap</div>
+    <h2>Suggested phasing</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Phase</th><th>Scope (all within constituency-development-management unless noted)</th><th>Est.</th></tr></thead>
+        <tbody>
+          <tr><td class="code">0</td><td>Extend security-access-control: role/permission tables, seed existing + new roles</td><td class="num">~2 wks</td></tr>
+          <tr><td class="code">1</td><td>region package: location hierarchy CRUD, bulk import for Magura-2; plus development category / sub-category CRUD</td><td class="num">~3 wks</td></tr>
+          <tr><td class="code">2</td><td>project package: project CRUD, manual priority rank, status workflow</td><td class="num">~4 wks</td></tr>
+          <tr><td class="code">3</td><td>fund package: periods, category earmarks, allocation, ledger — allocation now updates project status in the same transaction</td><td class="num">~3 wks</td></tr>
+          <tr><td class="code">4</td><td>contractor package: onboarding, licensing, work history</td><td class="num">~4 wks</td></tr>
+          <tr><td class="code">5</td><td>workorder package: work orders, milestone payments, inspections</td><td class="num">~5 wks</td></tr>
+          <tr><td class="code">6</td><td>analytics-reporting: fund / project / category dashboards</td><td class="num">~3 wks</td></tr>
+          <tr><td class="code">7</td><td>Kafka-driven audit trail wired from constituency-development-management to security-access-control; AI backlog begins</td><td class="num">ongoing</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="mvp">
+    <div class="kicker">10 — MVP Plan</div>
+    <h2>What to build first</h2>
+    <p class="lede">The MVP proves the core loop — priority queue in, payment out — without the parts that are safe to bolt on later.</p>
+    <div class="in-out">
+      <div class="col in">
+        <h4>Ship in MVP</h4>
+        <ul>
+          <li>Project registration + manual status transitions</li>
+          <li>Manual priority ranking (score entered, not computed by formula)</li>
+          <li>Fund period + project-level allocation</li>
+          <li>Single-payment work orders (no milestone split yet)</li>
+          <li>New roles wired into JWT + <span class="code mono">@PreAuthorize</span></li>
+          <li>Basic dashboard: totals only, no category breakdown</li>
+        </ul>
+      </div>
+      <div class="col out">
+        <h4>Defer past MVP</h4>
+        <ul>
+          <li>Milestone/percentage payment splits</li>
+          <li>Inspection photos and quality scoring</li>
+          <li>Weighted priority-scoring formula</li>
+          <li>Contractor performance ratings</li>
+          <li>Document OCR, category-wise analytics</li>
+          <li>Everything in Section 11</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="ai">
+    <div class="kicker">11 — Future AI Features</div>
+    <h2>Backlog, roughly in build order</h2>
+    <ol class="spec">
+      <li><strong>Priority-scoring model</strong> — learn weights for urgency, population coverage and repair cadence from historical funding outcomes, instead of a hand-tuned formula.</li>
+      <li><strong>Inspection vision</strong> — estimate percent-complete from submitted photos and flag duplicate or reused images.</li>
+      <li><strong>Payment anomaly detection</strong> — flag unusual milestone timing or amount patterns per contractor for finance review.</li>
+      <li><strong>Document OCR</strong> — auto-extract voucher and invoice fields on upload instead of manual entry.</li>
+      <li><strong>Fund demand forecasting</strong> — predict next month's category-wise need from the standing priority queue.</li>
+      <li><strong>Constituent chatbot</strong> — Bangla/English project-status lookup by name or location, backed by constituency-development-management's project read API.</li>
+    </ol>
+  </section>
+
+  <footer class="colophon">
+    Build Nation · Constituency Development Fund proposal · drafted from Doc/notes.txt · 26 July 2026
+  </footer>
+</div>

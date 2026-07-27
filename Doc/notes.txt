@@ -1,0 +1,352 @@
+*******************************Prompt for Claude AI start****************************
+I want to design and develop a Public Development Fund Management System for an MP (Member of Parliament) receceived fund for my district.
+Please read the below analysis i have done. Please suggest me and give me suggestion. And I will developed these services under Build Nation project.
+
+Context:
+My uncle is an MP from Magura-2, Bangladesh and also a Minister of Culture Affairs. 
+I was involved in his election campaign. Now we want to automate the manual process of managing constituency development funds.
+
+Current manual process:
+Every month the government allocates development funds. The funds are used for different types of local development projects such as:
+
+- Road maintenance
+- Bridge maintenance
+- School/college reconstruction
+- Religious institution reconstruction (Mosque, Temple, Church, Pagoda)
+- Hospital/clinic maintenance and reconstruction
+- Government office maintenance
+- River side maintenance
+- Canal digging
+- Agriculture development
+- Poor people assistance/donation
+- Communication development
+- Water and electricity development
+- Other public welfare activities
+
+Example scenario:
+For June 2026, suppose the government provides 5,000,000 BDT.
+Before receiving funds, we maintain a priority list of 100 projects (for example 100 temples/mosques needing reconstruction).
+
+Since the fund is limited, we select the highest priority projects first.
+Example:
+Top 10 religious buildings get funding this month.
+The remaining projects stay in the queue and will be funded when future funds arrive.
+
+The system should automate:
+1. Project registration
+2. Priority management
+3. Fund allocation
+4. Vendor/contractor selection
+5. Work order creation
+6. Advance and milestone payment
+7. Project monitoring
+8. Inspection
+9. Completion approval
+10. Reporting and dashboards
+
+Business requirements:
+
+1. Location Management:
+Hierarchy:
+District
+ -> Upazila
+    -> Union
+		-> Ward
+			-> Village
+
+2. Development Category:
+
+Main Categories:
+- Education
+- Religious
+- Medical
+- Government Office
+- Communication
+- Agriculture
+- Water
+- Electricity
+- Social Welfare
+
+Sub Categories examples:
+
+Education:
+- Pre-school
+- Primary School
+- High School
+- College
+- Madrasa
+
+Religious:
+- Mosque
+- Temple
+- Church
+- Pagoda
+
+Medical:
+- Hospital
+- Clinic
+
+3. Project Management:
+
+Each project should contain:
+
+- Project ID
+- Project name
+- Category
+- Sub-category
+- Location
+- Description
+- Estimated cost
+- Current condition
+- Priority score
+- Priority rank
+- Submitted by
+- Photos/documents
+- Status
+
+Project status:
+
+NEW
+PENDING_APPROVAL
+APPROVED
+ALLOCATED
+RUNNING
+INSPECTION
+COMPLETED
+CANCELLED
+
+
+4. Priority System:
+
+The system should maintain a ranked queue.
+
+Priority can depend on:
+
+- Urgency
+- Public benefit
+- Population coverage
+- Previous funding history
+- Last repair date
+- Current condition
+- Social importance
+
+Example:
+
+Project A priority = 100
+Project B priority = 90
+Project C priority = 80
+
+
+5. Fund Management:
+
+Create monthly fund records:
+
+Example:
+
+Month:
+June 2026
+
+Total fund:
+5,000,000
+
+Track:
+
+- Fund type
+- Fund Category
+- Fund Sub Category
+- Received amount
+- Allocated amount
+- Spent amount
+- Remaining amount
+- History
+
+
+Fund allocation:
+
+Example:
+
+Temple A = 800,000
+Mosque B = 500,000
+School C = 900,000
+
+
+6. Contractor/Vendor Management:
+
+Maintain:
+
+- Individual contractors
+- Construction companies
+- NGOs
+- Local committees
+
+Information:
+
+- Name
+- Contact
+- Address
+- License
+- Key Person Name
+- Key Person Contact
+- Bank details
+- Previous work history
+
+
+7. Work Order Management:
+
+When project is approved:
+
+Generate work order:
+
+Example:
+
+Work Order:
+WO-2026-0001
+
+Project:
+XYZ Temple Reconstruction
+
+Contractor:
+ABC Construction
+
+Amount:
+800,000
+
+Start date:
+01-July-2026
+
+End date:
+30-August-2026
+
+
+8. Payment Management:
+
+Support milestone payments:
+
+Example:
+
+Advance:
+30%
+
+Progress payment:
+40%
+
+Final payment:
+30%
+
+Track:
+
+- Payment request
+- Approval
+- Voucher
+- Payment date
+
+
+9. Inspection:
+
+Before releasing final payment:
+
+Inspector should verify:
+
+- Work progress
+- Quality
+- Photos
+- Remarks
+- Approval
+
+
+10. Dashboard:
+
+Need dashboards:
+
+Fund dashboard:
+
+Total fund
+Allocated
+Spent
+Remaining
+
+
+Project dashboard:
+
+Total projects
+Completed
+Running
+Pending
+
+
+Category-wise:
+
+Education %
+Religion %
+Medical %
+Road %
+
+11. Security:
+
+Dynamic Role-based access control.
+
+Roles: Roles will be dynamic.
+
+MP/Minister
+Project Officer
+Engineer
+Finance Officer
+Admin
+Viewer
+
+
+Need complete audit trail:
+
+Who changed what
+Old value
+New value
+Date/time
+
+
+Technology preference:
+
+I am a Java Senior Lead Engineer.
+
+Design using:
+
+Backend:
+Spring Boot 3.x
+Spring Security
+JWT
+Spring Data JPA
+
+Architecture:
+Microservices
+
+Database:
+PostgreSQL or Oracle
+
+Frontend:
+React or Angular
+
+Reporting:
+JasperReports
+
+Deployment:
+Docker
+Kubernetes
+
+Other:
+Kafka for events
+Redis cache
+MinIO/S3 for documents
+
+
+Please provide: These are the features need to add in the build nation project as microservice.
+
+1. Complete system architecture 
+2. Database ER diagram
+3. Microservice design
+4. Database tables with relationships
+5. REST API design
+6. User roles and permissions need to add in current auth module
+7. Workflow diagrams
+8. Development roadmap
+9. Recommended MVP implementation plan
+10. Future AI features
+*******************************Prompt for Claude AI End******************************

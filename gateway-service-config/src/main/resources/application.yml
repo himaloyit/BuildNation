@@ -37,15 +37,26 @@ resilience4j:
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 5
         sliding-window-type: COUNT_BASED
+      constituency-development-management:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 5
+        sliding-window-type: COUNT_BASED
   timelimiter:
     instances:
       member-management:
         timeout-duration: 5s
       security-access-control:
         timeout-duration: 5s
+      constituency-development-management:
+        timeout-duration: 5s
   retry:
     instances:
       member-management:
+        max-attempts: 3
+        wait-duration: 1s
+      constituency-development-management:
         max-attempts: 3
         wait-duration: 1s
 
@@ -80,3 +91,4 @@ services:
   url:
     member-management: lb://member-management
     security-access-control: lb://security-access-control
+    constituency-development-management: lb://constituency-development-management

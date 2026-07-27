@@ -9,4 +9,5 @@ public class ServiceUrlProperties {
 
     private String memberManagement;
     private String securityAccessControl;
+    private String constituencyDevelopmentManagement;
 }

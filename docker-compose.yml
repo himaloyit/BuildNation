@@ -115,6 +115,32 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  constituency-development-management:
+    build:
+      context: ./constituency-development-management
+      dockerfile: Dockerfile
+    container_name: buildnation-cdm
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/buildnation_db
+      SPRING_DATASOURCE_USERNAME: buildnation
+      SPRING_DATASOURCE_PASSWORD: buildnation123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
+      SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-service-discovery:
+        condition: service_healthy
+    restart: unless-stopped
+
   gateway-service-config:
     build:
       context: ./gateway-service-config
@@ -137,6 +163,8 @@ services:
       member-management:
         condition: service_started
       security-access-control:
+        condition: service_started
+      constituency-development-management:
         condition: service_started
     restart: unless-stopped
 

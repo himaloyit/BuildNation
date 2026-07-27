@@ -14,7 +14,7 @@
         <module>gateway-service-config</module>
         <module>security-access-control</module>
         <module>member-management</module>
-        <module>constituency-region-management</module>
+        <module>constituency-development-management</module>
         <module>event-campaign-management</module>
         <module>volunteer-management</module>
         <module>donations-fundraising</module>

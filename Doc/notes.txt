@@ -350,3 +350,18 @@ Please provide: These are the features need to add in the build nation project a
 9. Recommended MVP implementation plan
 10. Future AI features
 *******************************Prompt for Claude AI End******************************
+Run it up and test all the endpoints through the gateway
+build the next domain
+
+*******************************Decided Plan (2026-08-09)******************************
+1. [DONE] Ran the full docker-compose stack (postgres, redis, eureka, member-management,
+   security-access-control, constituency-development-management, gateway) and verified:
+   - All services register correctly with Eureka (confirms the defaultZone case-sensitivity
+     fix from commit 3d7a5fa works)
+   - Full District -> Upazila -> Union -> Ward -> Village CRUD chain works end-to-end through
+     the gateway (create/get/list/update/delete), including FK linking and 404/400 error handling
+   - Create endpoints are POST /api/v1/{resource}/create (member-management convention)
+2. [NEXT] Build the next domain inside constituency-development-management: fund management,
+   per the consolidation decision (region, fund, project, contractor, work-order/payment all
+   live in this one service, not separate microservices).
+   Then continue with: project -> contractor -> work-order/payment.

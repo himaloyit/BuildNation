@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,7 +32,6 @@ public class DistrictService implements IDistrictService {
     }
 
     @Override
-    @CacheEvict(value = "districts-list", allEntries = true)
     public DistrictDTO createDistrict(CreateDistrictRequest request) {
         log.info("Creating district: code={}", request.getCode());
         District district = District.builder()
@@ -58,16 +56,12 @@ public class DistrictService implements IDistrictService {
     }
 
     @Override
-    @Cacheable(value = "districts-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<DistrictDTO> getAllDistricts(Pageable pageable) {
         return iDistrictRepository.findAll(pageable).map(iDistrictMapper::toDto);
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "districts", key = "#id"),
-        evict = @CacheEvict(value = "districts-list", allEntries = true)
-    )
+    @CachePut(value = "districts", key = "#id")
     public DistrictDTO updateDistrict(UUID id, UpdateDistrictRequest request) {
         log.info("Updating district: id={}", id);
         District district = iDistrictRepository.findById(id)
@@ -83,10 +77,7 @@ public class DistrictService implements IDistrictService {
     }
 
     @Override
-    @Caching(evict = {
-        @CacheEvict(value = "districts", key = "#id"),
-        @CacheEvict(value = "districts-list", allEntries = true)
-    })
+    @CacheEvict(value = "districts", key = "#id")
     public void deleteDistrict(UUID id) {
         log.info("Deleting district: id={}", id);
         if (!iDistrictRepository.existsById(id)) {

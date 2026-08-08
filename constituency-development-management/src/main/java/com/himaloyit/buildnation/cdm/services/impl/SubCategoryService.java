@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,7 +36,6 @@ public class SubCategoryService implements ISubCategoryService {
     }
 
     @Override
-    @CacheEvict(value = "subcategories-list", allEntries = true)
     public SubCategoryDTO createSubCategory(CreateSubCategoryRequest request) {
         log.info("Creating subcategory: code={}, categoryId={}", request.getCode(), request.getCategoryId());
         Category category = iCategoryRepository.findById(request.getCategoryId())
@@ -66,7 +64,6 @@ public class SubCategoryService implements ISubCategoryService {
     }
 
     @Override
-    @Cacheable(value = "subcategories-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<SubCategoryDTO> getAllSubCategories(Pageable pageable) {
         return iSubCategoryRepository.findAll(pageable).map(iSubCategoryMapper::toDto);
     }
@@ -77,10 +74,7 @@ public class SubCategoryService implements ISubCategoryService {
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "subcategories", key = "#id"),
-        evict = @CacheEvict(value = "subcategories-list", allEntries = true)
-    )
+    @CachePut(value = "subcategories", key = "#id")
     public SubCategoryDTO updateSubCategory(UUID id, UpdateSubCategoryRequest request) {
         log.info("Updating subcategory: id={}", id);
         SubCategory subCategory = iSubCategoryRepository.findById(id)
@@ -101,10 +95,7 @@ public class SubCategoryService implements ISubCategoryService {
     }
 
     @Override
-    @Caching(evict = {
-        @CacheEvict(value = "subcategories", key = "#id"),
-        @CacheEvict(value = "subcategories-list", allEntries = true)
-    })
+    @CacheEvict(value = "subcategories", key = "#id")
     public void deleteSubCategory(UUID id) {
         log.info("Deleting subcategory: id={}", id);
         if (!iSubCategoryRepository.existsById(id)) {

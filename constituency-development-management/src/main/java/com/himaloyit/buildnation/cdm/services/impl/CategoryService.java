@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,7 +32,6 @@ public class CategoryService implements ICategoryService {
     }
 
     @Override
-    @CacheEvict(value = "categories-list", allEntries = true)
     public CategoryDTO createCategory(CreateCategoryRequest request) {
         log.info("Creating category: code={}", request.getCode());
         Category category = Category.builder()
@@ -58,16 +56,12 @@ public class CategoryService implements ICategoryService {
     }
 
     @Override
-    @Cacheable(value = "categories-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<CategoryDTO> getAllCategories(Pageable pageable) {
         return iCategoryRepository.findAll(pageable).map(iCategoryMapper::toDto);
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "categories", key = "#id"),
-        evict = @CacheEvict(value = "categories-list", allEntries = true)
-    )
+    @CachePut(value = "categories", key = "#id")
     public CategoryDTO updateCategory(UUID id, UpdateCategoryRequest request) {
         log.info("Updating category: id={}", id);
         Category category = iCategoryRepository.findById(id)
@@ -83,10 +77,7 @@ public class CategoryService implements ICategoryService {
     }
 
     @Override
-    @Caching(evict = {
-        @CacheEvict(value = "categories", key = "#id"),
-        @CacheEvict(value = "categories-list", allEntries = true)
-    })
+    @CacheEvict(value = "categories", key = "#id")
     public void deleteCategory(UUID id) {
         log.info("Deleting category: id={}", id);
         if (!iCategoryRepository.existsById(id)) {

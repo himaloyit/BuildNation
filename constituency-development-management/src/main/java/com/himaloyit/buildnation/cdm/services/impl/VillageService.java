@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,7 +36,6 @@ public class VillageService implements IVillageService {
     }
 
     @Override
-    @CacheEvict(value = "villages-list", allEntries = true)
     public VillageDTO createVillage(CreateVillageRequest request) {
         log.info("Creating village: code={}, wardId={}", request.getCode(), request.getWardId());
         Ward ward = iWardRepository.findById(request.getWardId())
@@ -66,7 +64,6 @@ public class VillageService implements IVillageService {
     }
 
     @Override
-    @Cacheable(value = "villages-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<VillageDTO> getAllVillages(Pageable pageable) {
         return iVillageRepository.findAll(pageable).map(iVillageMapper::toDto);
     }
@@ -77,10 +74,7 @@ public class VillageService implements IVillageService {
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "villages", key = "#id"),
-        evict = @CacheEvict(value = "villages-list", allEntries = true)
-    )
+    @CachePut(value = "villages", key = "#id")
     public VillageDTO updateVillage(UUID id, UpdateVillageRequest request) {
         log.info("Updating village: id={}", id);
         Village village = iVillageRepository.findById(id)
@@ -101,10 +95,7 @@ public class VillageService implements IVillageService {
     }
 
     @Override
-    @Caching(evict = {
-        @CacheEvict(value = "villages", key = "#id"),
-        @CacheEvict(value = "villages-list", allEntries = true)
-    })
+    @CacheEvict(value = "villages", key = "#id")
     public void deleteVillage(UUID id) {
         log.info("Deleting village: id={}", id);
         if (!iVillageRepository.existsById(id)) {

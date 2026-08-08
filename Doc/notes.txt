@@ -397,4 +397,37 @@ build the next domain
      and project status both update correctly), over-allocation correctly rejected with 400,
      delete reverses the fund balance without touching project status, by-fund/by-project
      filters both correct, 404 on double-delete
-4. [NEXT] Contractor/Vendor management, then work-order/payment.
+4. [DONE] Contractor/Vendor management built inside constituency-development-management:
+   standalone Contractor entity (no FKs), fields: name, type (ContractorType: INDIVIDUAL,
+   CONSTRUCTION_COMPANY, NGO, LOCAL_COMMITTEE), status (ContractorStatus: ACTIVE, INACTIVE,
+   BLACKLISTED - added beyond the literal spec for consistency with Member/Project, and to
+   support disqualifying contractors once work orders exist), contactNumber, address,
+   license (nullable), keyPersonName, keyPersonContact, flat bank details (bankName,
+   bankAccountNumber, bankBranch). "Previous work history" deferred - it's naturally
+   List<WorkOrder> by contractorId, which doesn't exist until the next domain.
+   Verified end-to-end through the gateway: create all 3 types, get/list/update,
+   PATCH status to BLACKLISTED, by-type/by-status filters, delete + 404.
+
+   BUG FOUND (pre-existing, not caused by this change): RedisConfig's ObjectMapper
+   (constituency-development-management/.../config/RedisConfig.java) uses
+   activateDefaultTyping for polymorphic JSON, but Spring Data's PageImpl has no
+   Jackson creator/no-arg constructor. Every "-list" @Cacheable method (getAllDistricts,
+   getAllCategories, getAllProjects, getAllFunds, getAllContractors, etc.) serializes fine
+   on cache WRITE but throws 500 (InvalidDefinitionException) on cache HIT - i.e. the
+   second identical paginated list call within the 10-min TTL without an intervening
+   write. This has been latent since the region-hierarchy commit; it only surfaced now
+   because a smoke-test retry loop happened to hit GET /api/v1/contractors twice with no
+   write in between.
+
+   FIXED (2026-08-09): removed @Cacheable from every paginated "-list" method across all
+   11 service classes (District, Upazila, Union, Ward, Village, Category, SubCategory,
+   Project, Fund, FundAllocation, Contractor) - these queries are cheap DB reads anyway,
+   not worth the round-trip fragility. Get-by-id caching was left untouched (it caches
+   plain DTOs with a default constructor, which Jackson deserializes fine - confirmed by
+   re-testing a repeat GET-by-id hit after the fix). @Caching blocks that combined an
+   id-based put/evict with a now-removed list-evict were simplified back down to single
+   @CachePut/@CacheEvict annotations. Verified by calling GET /api/v1/contractors and
+   GET /api/v1/districts twice in a row through the gateway post-fix - both now return
+   200 on every call (previously 500'd on the second call).
+5. [NEXT] Work-order/payment management - the domain that finally ties Contractor +
+   Project + Fund together (select contractor, generate work order, milestone payments).

@@ -50,7 +50,7 @@ public class FundAllocationService implements IFundAllocationService {
 
     @Override
     @Transactional
-    @CacheEvict(value = {"fund-allocations-list", "funds", "funds-list"}, allEntries = true)
+    @CacheEvict(value = "funds", allEntries = true)
     public FundAllocationDTO createAllocation(CreateFundAllocationRequest request) {
         log.info("Creating fund allocation: fundId={}, projectId={}, amount={}",
                 request.getFundId(), request.getProjectId(), request.getAmount());
@@ -96,7 +96,6 @@ public class FundAllocationService implements IFundAllocationService {
     }
 
     @Override
-    @Cacheable(value = "fund-allocations-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<FundAllocationDTO> getAllAllocations(Pageable pageable) {
         return iFundAllocationRepository.findAll(pageable).map(iFundAllocationMapper::toDto);
     }
@@ -115,7 +114,7 @@ public class FundAllocationService implements IFundAllocationService {
     @Transactional
     @Caching(evict = {
         @CacheEvict(value = "fund-allocations", key = "#id"),
-        @CacheEvict(value = {"fund-allocations-list", "funds", "funds-list"}, allEntries = true)
+        @CacheEvict(value = "funds", allEntries = true)
     })
     public void deleteAllocation(UUID id) {
         log.info("Deleting fund allocation: id={}", id);

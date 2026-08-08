@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,7 +36,6 @@ public class UpazilaService implements IUpazilaService {
     }
 
     @Override
-    @CacheEvict(value = "upazilas-list", allEntries = true)
     public UpazilaDTO createUpazila(CreateUpazilaRequest request) {
         log.info("Creating upazila: code={}, districtId={}", request.getCode(), request.getDistrictId());
         District district = iDistrictRepository.findById(request.getDistrictId())
@@ -66,7 +64,6 @@ public class UpazilaService implements IUpazilaService {
     }
 
     @Override
-    @Cacheable(value = "upazilas-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<UpazilaDTO> getAllUpazilas(Pageable pageable) {
         return iUpazilaRepository.findAll(pageable).map(iUpazilaMapper::toDto);
     }
@@ -77,10 +74,7 @@ public class UpazilaService implements IUpazilaService {
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "upazilas", key = "#id"),
-        evict = @CacheEvict(value = "upazilas-list", allEntries = true)
-    )
+    @CachePut(value = "upazilas", key = "#id")
     public UpazilaDTO updateUpazila(UUID id, UpdateUpazilaRequest request) {
         log.info("Updating upazila: id={}", id);
         Upazila upazila = iUpazilaRepository.findById(id)
@@ -101,10 +95,7 @@ public class UpazilaService implements IUpazilaService {
     }
 
     @Override
-    @Caching(evict = {
-        @CacheEvict(value = "upazilas", key = "#id"),
-        @CacheEvict(value = "upazilas-list", allEntries = true)
-    })
+    @CacheEvict(value = "upazilas", key = "#id")
     public void deleteUpazila(UUID id) {
         log.info("Deleting upazila: id={}", id);
         if (!iUpazilaRepository.existsById(id)) {

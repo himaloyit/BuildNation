@@ -16,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -43,7 +42,6 @@ public class FundService implements IFundService {
     }
 
     @Override
-    @CacheEvict(value = "funds-list", allEntries = true)
     public FundDTO createFund(CreateFundRequest request) {
         log.info("Creating fund: month={}, fundType={}", request.getMonth(), request.getFundType());
         Category category = null;
@@ -85,7 +83,6 @@ public class FundService implements IFundService {
     }
 
     @Override
-    @Cacheable(value = "funds-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<FundDTO> getAllFunds(Pageable pageable) {
         return iFundRepository.findAll(pageable).map(iFundMapper::toDto);
     }
@@ -96,10 +93,7 @@ public class FundService implements IFundService {
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "funds", key = "#id"),
-        evict = @CacheEvict(value = "funds-list", allEntries = true)
-    )
+    @CachePut(value = "funds", key = "#id")
     public FundDTO updateFund(UUID id, UpdateFundRequest request) {
         log.info("Updating fund: id={}", id);
         Fund fund = iFundRepository.findById(id)
@@ -129,10 +123,7 @@ public class FundService implements IFundService {
     }
 
     @Override
-    @Caching(evict = {
-        @CacheEvict(value = "funds", key = "#id"),
-        @CacheEvict(value = "funds-list", allEntries = true)
-    })
+    @CacheEvict(value = "funds", key = "#id")
     public void deleteFund(UUID id) {
         log.info("Deleting fund: id={}", id);
         if (!iFundRepository.existsById(id)) {

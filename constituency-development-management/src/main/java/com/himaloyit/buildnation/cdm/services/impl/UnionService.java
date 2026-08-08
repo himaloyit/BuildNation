@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,7 +36,6 @@ public class UnionService implements IUnionService {
     }
 
     @Override
-    @CacheEvict(value = "unions-list", allEntries = true)
     public UnionDTO createUnion(CreateUnionRequest request) {
         log.info("Creating union: code={}, upazilaId={}", request.getCode(), request.getUpazilaId());
         Upazila upazila = iUpazilaRepository.findById(request.getUpazilaId())
@@ -66,7 +64,6 @@ public class UnionService implements IUnionService {
     }
 
     @Override
-    @Cacheable(value = "unions-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<UnionDTO> getAllUnions(Pageable pageable) {
         return iUnionRepository.findAll(pageable).map(iUnionMapper::toDto);
     }
@@ -77,10 +74,7 @@ public class UnionService implements IUnionService {
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "unions", key = "#id"),
-        evict = @CacheEvict(value = "unions-list", allEntries = true)
-    )
+    @CachePut(value = "unions", key = "#id")
     public UnionDTO updateUnion(UUID id, UpdateUnionRequest request) {
         log.info("Updating union: id={}", id);
         Union union = iUnionRepository.findById(id)
@@ -101,10 +95,7 @@ public class UnionService implements IUnionService {
     }
 
     @Override
-    @Caching(evict = {
-        @CacheEvict(value = "unions", key = "#id"),
-        @CacheEvict(value = "unions-list", allEntries = true)
-    })
+    @CacheEvict(value = "unions", key = "#id")
     public void deleteUnion(UUID id) {
         log.info("Deleting union: id={}", id);
         if (!iUnionRepository.existsById(id)) {

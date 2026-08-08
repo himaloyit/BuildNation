@@ -21,7 +21,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -56,7 +55,6 @@ public class ProjectService implements IProjectService {
     }
 
     @Override
-    @CacheEvict(value = "projects-list", allEntries = true)
     public ProjectDTO createProject(CreateProjectRequest request) {
         log.info("Creating project: name={}, categoryId={}", request.getName(), request.getCategoryId());
         Category category = iCategoryRepository.findById(request.getCategoryId())
@@ -96,7 +94,6 @@ public class ProjectService implements IProjectService {
     }
 
     @Override
-    @Cacheable(value = "projects-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<ProjectDTO> getAllProjects(Pageable pageable) {
         return iProjectRepository.findAll(pageable).map(iProjectMapper::toDto);
     }
@@ -112,10 +109,7 @@ public class ProjectService implements IProjectService {
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "projects", key = "#id"),
-        evict = @CacheEvict(value = "projects-list", allEntries = true)
-    )
+    @CachePut(value = "projects", key = "#id")
     public ProjectDTO updateProject(UUID id, UpdateProjectRequest request) {
         log.info("Updating project: id={}", id);
         Project project = iProjectRepository.findById(id)
@@ -149,10 +143,7 @@ public class ProjectService implements IProjectService {
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "projects", key = "#id"),
-        evict = @CacheEvict(value = "projects-list", allEntries = true)
-    )
+    @CachePut(value = "projects", key = "#id")
     public ProjectDTO updateProjectStatus(UUID id, UpdateProjectStatusRequest request) {
         log.info("Updating project status: id={}, status={}", id, request.getStatus());
         Project project = iProjectRepository.findById(id)
@@ -165,10 +156,7 @@ public class ProjectService implements IProjectService {
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "projects", key = "#id"),
-        evict = @CacheEvict(value = "projects-list", allEntries = true)
-    )
+    @CachePut(value = "projects", key = "#id")
     public ProjectDTO updateProjectPriority(UUID id, UpdateProjectPriorityRequest request) {
         log.info("Updating project priority score: id={}, score={}", id, request.getPriorityScore());
         Project project = iProjectRepository.findById(id)
@@ -181,10 +169,7 @@ public class ProjectService implements IProjectService {
     }
 
     @Override
-    @Caching(evict = {
-        @CacheEvict(value = "projects", key = "#id"),
-        @CacheEvict(value = "projects-list", allEntries = true)
-    })
+    @CacheEvict(value = "projects", key = "#id")
     public void deleteProject(UUID id) {
         log.info("Deleting project: id={}", id);
         if (!iProjectRepository.existsById(id)) {
@@ -203,7 +188,7 @@ public class ProjectService implements IProjectService {
     }
 
     @Override
-    @CacheEvict(value = {"projects", "projects-list"}, allEntries = true)
+    @CacheEvict(value = "projects", allEntries = true)
     public int recalculatePriorityQueue(UUID categoryId) {
         log.info("Recalculating priority queue: categoryId={}", categoryId);
         List<Project> queued = categoryId != null

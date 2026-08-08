@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,7 +36,6 @@ public class WardService implements IWardService {
     }
 
     @Override
-    @CacheEvict(value = "wards-list", allEntries = true)
     public WardDTO createWard(CreateWardRequest request) {
         log.info("Creating ward: code={}, unionId={}", request.getCode(), request.getUnionId());
         Union union = iUnionRepository.findById(request.getUnionId())
@@ -66,7 +64,6 @@ public class WardService implements IWardService {
     }
 
     @Override
-    @Cacheable(value = "wards-list", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<WardDTO> getAllWards(Pageable pageable) {
         return iWardRepository.findAll(pageable).map(iWardMapper::toDto);
     }
@@ -77,10 +74,7 @@ public class WardService implements IWardService {
     }
 
     @Override
-    @Caching(
-        put  = @CachePut(value = "wards", key = "#id"),
-        evict = @CacheEvict(value = "wards-list", allEntries = true)
-    )
+    @CachePut(value = "wards", key = "#id")
     public WardDTO updateWard(UUID id, UpdateWardRequest request) {
         log.info("Updating ward: id={}", id);
         Ward ward = iWardRepository.findById(id)
@@ -101,10 +95,7 @@ public class WardService implements IWardService {
     }
 
     @Override
-    @Caching(evict = {
-        @CacheEvict(value = "wards", key = "#id"),
-        @CacheEvict(value = "wards-list", allEntries = true)
-    })
+    @CacheEvict(value = "wards", key = "#id")
     public void deleteWard(UUID id) {
         log.info("Deleting ward: id={}", id);
         if (!iWardRepository.existsById(id)) {

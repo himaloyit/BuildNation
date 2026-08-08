@@ -429,5 +429,40 @@ build the next domain
    @CachePut/@CacheEvict annotations. Verified by calling GET /api/v1/contractors and
    GET /api/v1/districts twice in a row through the gateway post-fix - both now return
    200 on every call (previously 500'd on the second call).
-5. [NEXT] Work-order/payment management - the domain that finally ties Contractor +
-   Project + Fund together (select contractor, generate work order, milestone payments).
+5. [DONE] Work Order & Payment Management built inside constituency-development-management -
+   this completes the full originally-planned domain set (region -> project -> fund ->
+   contractor -> work-order/payment).
+   - WorkOrder: FKs to Project, Contractor, AND FundAllocation (not just Project - a project
+     can have multiple fund allocations across months, so the work order needs to know
+     exactly which allocation it draws against). Auto-generated workOrderNumber
+     (WO-{year}-{seq}). Creating one validates project.status==ALLOCATED, contractor is not
+     BLACKLISTED, and amount <= fundAllocation.amount; cascades project -> RUNNING.
+   - Inspection: FK to WorkOrder. Creating one cascades workOrder -> INSPECTION and
+     project -> INSPECTION. Photos deferred (still no MinIO/S3).
+   - Payment: FK to WorkOrder, milestoneType (ADVANCE/PROGRESS/FINAL), percentage-based
+     amount computed from workOrder.amount. Create validates percentage sum across
+     non-REJECTED payments <= 100%. PATCH /status drives the whole state machine:
+     REQUESTED->APPROVED (FINAL type requires an APPROVED inspection to already exist, else
+     400), APPROVED->PAID (generates voucherNumber, adds payment.amount to
+     fund.spentAmount - the first real consumer of that field since the Fund domain was
+     built - and if FINAL, cascades workOrder->COMPLETED and project->COMPLETED),
+     REQUESTED->REJECTED. Delete blocked once APPROVED/PAID.
+   - New shared InvalidStateException (400) covers every business-rule violation above.
+   - BUG FOUND AND FIXED during testing: PaymentService mutates Fund.spentAmount directly
+     via IFundRepository (bypassing FundService), so the "funds" id-cache went stale after
+     a PAID transition - API kept returning the pre-payment spentAmount even though the DB
+     was correct. Same root cause pattern as the earlier Redis list-cache bug (direct
+     repository mutation without evicting the owning service's cache). Fixed by adding
+     @CacheEvict(value = "funds", allEntries = true) to PaymentService.updatePaymentStatus.
+     Re-verified with a fresh fund/payment cycle post-fix - spentAmount now correct and
+     consistent across repeat reads.
+   - Verified end-to-end through the gateway: full chain project -> fund -> allocation ->
+     contractor -> work order (plus all 3 rejection guards: non-ALLOCATED project,
+     BLACKLISTED contractor, amount > allocation) -> inspection (status cascades confirmed)
+     -> 3 payments (ADVANCE/PROGRESS/FINAL, percentage-overflow guard, final-needs-inspection
+     gate, delete-guard on a PAID payment) -> confirmed WorkOrder/Project reach COMPLETED and
+     Fund.spentAmount reflects the sum of all paid amounts.
+
+This is the full spec from Doc/Prompt/Prompt now implemented in constituency-development-
+management. Nothing further planned unless the user requests a new domain (e.g. analytics/
+dashboards from section 10, or role-based access per section 11).

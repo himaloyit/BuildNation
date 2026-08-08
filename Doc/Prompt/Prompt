@@ -620,3 +620,197 @@ https://claude.ai/code/artifact/f975645f-1bee-4385-a680-0484138e3b22?via=auto_pr
 
 
 
+
+ Ready to code?
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ Contractor Management Domain (constituency-development-management)
+
+ Context
+
+ Per Doc/notes.txt's decided plan, after Fund Management (commit d3b5ac5) the next slice is Contractor/Vendor management (Doc/Prompt/Prompt section 6). Unlike Fund,
+ this is a standalone entity with no dependency on Project/Fund yet — the work-order slice after this one is what will actually link a Contractor to a Project/Fund
+ allocation ("select contractor → generate work order").
+
+ Source of truth
+
+ Doc/Prompt/Prompt lines 220–239 (Contractor/Vendor Management: types maintained, information tracked).
+
+ Scope decisions (defaults applied, flag if you want different)
+
+ - type: new enum ContractorType: INDIVIDUAL, CONSTRUCTION_COMPANY, NGO, LOCAL_COMMITTEE — verbatim from the spec's "Maintain: Individual contractors / Construction
+ companies / NGOs / Local committees".
+ - status: new enum ContractorStatus: ACTIVE, INACTIVE, BLACKLISTED — not explicitly listed in section 6, but added because every other core entity in this service
+ (Member, Project) carries a status, and disqualifying a bad-performing contractor from future work orders is an obvious near-term need once the work-order domain
+ exists. Small, low-risk addition consistent with the codebase's own conventions.
+ - Bank details: flattened into three plain fields (bankName, bankAccountNumber, bankBranch) rather than a nested object/embeddable — matches how Member/Project keep
+ everything flat rather than introducing @Embeddable value objects.
+ - "Previous work history": deferred entirely. It's naturally List<WorkOrder> by contractorId, which doesn't exist until the work-order/payment domain is built next —
+ same reasoning as deferring Fund's audit trail and Project's photo uploads. No placeholder field added for it.
+ - License: plain nullable String — individual contractors may not have one, so it's not required.
+
+ New entity (package com.himaloyit.buildnation.cdm.*, table cons_contractor)
+
+ Contractor:
+ - id, name, type (ContractorType), status (ContractorStatus, default ACTIVE)
+ - contactNumber, address, license (nullable)
+ - keyPersonName, keyPersonContact
+ - bankName, bankAccountNumber, bankBranch
+ - createdAt, updatedAt
+
+ No FKs — this is a standalone entity like Category, just with two enums and more plain fields instead of one parent reference.
+
+ Pattern to follow (already established)
+
+ - Plain top-level CRUD entity: Category/ICategoryRepository/CategoryService/CategoryController
+ (constituency-development-management/src/main/java/com/himaloyit/buildnation/cdm/...) — same shape, no parent FK.
+ - Enum + status PATCH pattern: ProjectStatus (domain/enums/ProjectStatus.java) and ProjectController.updateProjectStatus / UpdateProjectStatusRequest — reuse this
+ shape for PATCH /{id}/status.
+ - by-<field> filtered list pattern: ProjectController.getProjectsByCategory / IProjectRepository.findByCategoryId — reuse for by-type/{type} and by-status/{status}.
+
+ Create the same file set as the Category slice, plus the two enums: domain/entities/Contractor.java, domain/enums/ContractorType.java,
+ domain/enums/ContractorStatus.java, domain/dto/ContractorDTO.java, domain/mapper/IContractorMapper.java, domain/model/CreateContractorRequest.java +
+ UpdateContractorRequest.java + UpdateContractorStatusRequest.java, domain/repositories/iRepositories/IContractorRepository.java (with findByType, findByStatus),
+ services/iServices/IContractorService.java + services/impl/ContractorService.java, controllers/rest/ContractorController.java.
+
+ Endpoints (/api/v1/contractors)
+
+ Create, get-by-id, paginated list, update (all fields except status), delete, PATCH /{id}/status, GET /by-type/{type} (paginated), GET /by-status/{status}
+ (paginated).
+
+ Gateway wiring
+
+ Extend the existing constituency-development-management-route path list in
+ gateway-service-config/src/main/java/com/himaloyit/buildnation/gsc/config/GatewayConfig.java with "/api/v1/contractors/**".
+
+ Verification
+
+ 1. cd constituency-development-management && ./mvnw clean package and cd gateway-service-config && ./mvnw clean package.
+ 2. docker compose build constituency-development-management gateway-service-config && docker compose up -d, wait for cdm health check (watch for the circuit breaker
+ needing ~10s to reset after restart, as happened last time).
+ 3. Through the gateway (localhost:8081): create a contractor of each type, get/list/update, PATCH /{id}/status to BLACKLISTED, GET /by-type/{type} and GET
+ /by-status/{status}, delete + confirm 404.
+ 4. Append a "Contractor Management domain — done" entry to Doc/notes.txt's decided-plan section, noting work-order/payment is next (and that it will finally consume
+ Contractor + Project + Fund together).
+ 5. Update the persisted cdm_service.md memory with the new domain.
+ </content>
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+
+
+
+
+ Ready to code?
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ Work Order & Payment Management Domain (constituency-development-management)
+
+ Context
+
+ This is the final domain from the original spec (Doc/Prompt/Prompt sections 7-9) and the one that ties every previous slice together: a Contractor is selected, a Work
+ Order is issued against a specific Fund Allocation, milestone Payments are made against the work order, and an Inspection gates the final payment. It's also what
+ finally uses Fund.spentAmount, which has sat at a hardcoded 0 since the Fund domain was built. And it closes out the last three unused ProjectStatus values (RUNNING,
+ INSPECTION, COMPLETED) the same way Fund Allocation closed ALLOCATED.
+
+ Source of truth
+
+ Doc/Prompt/Prompt lines 241-302 (Work Order Management, Payment Management, Inspection).
+
+ Key design decision: WorkOrder links to a specific FundAllocation, not just Project
+
+ A Project can have more than one FundAllocation (funded across separate months). To know which Fund's spentAmount a Payment should draw down, WorkOrder needs a direct
+ FK to the FundAllocation it's spending against — not just the Project. So WorkOrder carries both project and fundAllocation FKs (plus contractor), and Payment
+ reaches the Fund via workOrder.fundAllocation.fund.
+
+ New entities (package com.himaloyit.buildnation.cdm.*, table prefix cons_)
+
+ WorkOrder — cons_work_order: id, workOrderNumber (unique, auto-generated WO-{year}-{seq}), project (FK), contractor (FK), fundAllocation (FK), amount, startDate,
+ endDate (LocalDate), status (WorkOrderStatus: IN_PROGRESS, INSPECTION, COMPLETED, CANCELLED), createdAt/updatedAt.
+
+ Payment — cons_payment: id, workOrder (FK), milestoneType (MilestoneType: ADVANCE, PROGRESS, FINAL — the spec's 30/40/30 split), percentage (Integer), amount
+ (BigDecimal, computed = workOrder.amount * percentage / 100), status (PaymentStatus: REQUESTED, APPROVED, PAID, REJECTED), voucherNumber (nullable, auto-generated
+ V-{year}-{seq} on PAID), requestedDate, approvedDate (nullable), paymentDate (nullable) — all LocalDate, createdAt/updatedAt.
+
+ Inspection — cons_inspection: id, workOrder (FK), inspectorName, progressPercentage (Integer), quality (String), remarks (nullable String), status (InspectionStatus:
+ PENDING, APPROVED, REJECTED), inspectionDate, createdAt/updatedAt. Photos deferred (same reasoning as Project — no MinIO/S3 yet).
+
+ New exception: util/exceptions/InvalidStateException (400) — one shared exception for every business-rule/state-machine violation below (mirrors the existing
+ EntityNotFoundException/InsufficientFundBalanceException handler pattern in GlobalResponseEntityException).
+
+ Business rules and status cascades (this is the core of the domain)
+
+ Creating a WorkOrder (WorkOrderService.createWorkOrder):
+ - Validates project.status == ALLOCATED (else InvalidStateException) — a work order can't be issued before funds are allocated
+ - Validates contractor.status != BLACKLISTED
+ - Validates fundAllocation.project.id == project.id (the allocation must actually belong to this project) and request.amount <= fundAllocation.amount (can't contract
+ for more than was allocated)
+ - Generates workOrderNumber, sets status = IN_PROGRESS
+ - Sets project.status = RUNNING via IProjectService.updateProjectStatus (same pattern FundAllocationService already uses)
+
+ Creating an Inspection (InspectionService.createInspection):
+ - Validates the work order isn't already COMPLETED/CANCELLED
+ - Sets workOrder.status = INSPECTION (direct repo mutation, same pattern as Fund mutations in FundAllocationService) and project.status = INSPECTION via
+ IProjectService
+
+ Creating a Payment (PaymentService.createPayment):
+ - Sums percentage across this work order's existing non-REJECTED payments; rejects if sum + new percentage > 100
+ - Computes amount, sets status = REQUESTED, requestedDate = now
+
+ Updating Payment status (PaymentService.updatePaymentStatus — one PATCH /{id}/status endpoint drives the whole state machine):
+ - REQUESTED → APPROVED: if milestoneType == FINAL, requires an APPROVED Inspection to already exist for this work order (else InvalidStateException); sets
+ approvedDate
+ - APPROVED → PAID: generates voucherNumber, sets paymentDate; adds payment.amount to fund.spentAmount (via workOrder.fundAllocation.fund, direct IFundRepository
+ mutation — first real consumer of that field); if milestoneType == FINAL, cascades workOrder.status = COMPLETED and project.status = COMPLETED via IProjectService
+ - REQUESTED → REJECTED: allowed
+ - Any other transition (e.g. REQUESTED → PAID directly, re-approving an already-PAID payment) → InvalidStateException
+
+ Deleting a Payment: only allowed while status is REQUESTED or REJECTED — once APPROVED/PAID it's a financial record, not reversible through delete (else
+ InvalidStateException).
+
+ Pattern to follow (already established)
+
+ - FK-validation + cross-service status cascade: FundAllocationService.createAllocation
+ (constituency-development-management/src/main/java/com/himaloyit/buildnation/cdm/services/impl/FundAllocationService.java) — same shape for
+ WorkOrderService/PaymentService: inject IProjectService for status changes, inject IFundRepository/IWorkOrderRepository directly for same-service-family field
+ mutations
+ - Sequential number generation: none exists yet — new pattern, small and self-contained (countByXStartingWith repository method + String.format)
+ - Standard CRUD/status-PATCH shape: ProjectController/ContractorController for the rest of each controller (create/get/list/update/delete, by-<parent> filters)
+ - Exception + handler: InsufficientFundBalanceException + its handler in GlobalResponseEntityException.java — copy this shape for InvalidStateException
+
+ Standard file set per entity (WorkOrder, Payment, Inspection): domain/entities, domain/enums (WorkOrderStatus, MilestoneType, PaymentStatus, InspectionStatus),
+ domain/dto, domain/mapper, domain/model (Create/Update requests + status-update requests), domain/repositories/iRepositories, services/iServices + services/impl,
+ controllers/rest.
+
+ Endpoints
+
+ WorkOrderController (/api/v1/work-orders): create, get-by-id, paginated list, GET /by-project/{projectId}, GET /by-contractor/{contractorId}, update (amount/dates
+ only), PATCH /{id}/status (manual override, e.g. to CANCELLED), delete.
+
+ PaymentController (/api/v1/payments): create, get-by-id, paginated list, GET /by-work-order/{workOrderId}, PATCH /{id}/status (drives the state machine above), delete
+ (with the REQUESTED/REJECTED-only guard).
+
+ InspectionController (/api/v1/inspections): create, get-by-id, paginated list, GET /by-work-order/{workOrderId}, PATCH /{id}/status (approve/reject), update
+ (remarks/quality/progress only), delete.
+
+ Gateway wiring
+
+ Extend the constituency-development-management-route path list in gateway-service-config/src/main/java/com/himaloyit/buildnation/gsc/config/GatewayConfig.java with
+ "/api/v1/work-orders/**", "/api/v1/payments/**", "/api/v1/inspections/**".
+
+ Verification
+
+ 1. cd constituency-development-management && ./mvnw clean package and cd gateway-service-config && ./mvnw clean package.
+ 2. docker compose build constituency-development-management gateway-service-config && docker compose up -d, wait for cdm health, let the gateway circuit breaker
+ settle (~10s, per the pattern seen every restart so far).
+ 3. Through the gateway, exercise the full lifecycle end-to-end: create Category/SubCategory/Project → Fund → FundAllocation (project → ALLOCATED) → Contractor →
+ WorkOrder (project → RUNNING, validate rejecting a non-ALLOCATED project and a BLACKLISTED contractor) → Inspection (project → INSPECTION) → three Payments (ADVANCE
+ 30 / PROGRESS 40 / FINAL 30): approve+pay ADVANCE and PROGRESS normally; attempt to approve FINAL before an APPROVED inspection exists (expect 400), approve the
+ inspection, then approve+pay FINAL (expect workOrder→COMPLETED, project→COMPLETED, fund.spentAmount increased by the sum of all three payments). Also verify the
+ percentage-sum-over-100 rejection and the delete-guard on an APPROVED/PAID payment.
+ 4. Append a "Work Order & Payment Management — done" entry to Doc/notes.txt, noting this completes the originally-planned domain set (region → project → fund →
+ contractor → work-order/payment).
+ 5. Update the persisted cdm_service.md memory with the new domain.
+ </content>
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+
+
+

@@ -3,6 +3,7 @@ package com.himaloyit.buildnation.cdm.controllers.advice;
 import com.himaloyit.buildnation.cdm.domain.model.ApiResponse;
 import com.himaloyit.buildnation.cdm.util.exceptions.EntityNotFoundException;
 import com.himaloyit.buildnation.cdm.util.exceptions.InsufficientFundBalanceException;
+import com.himaloyit.buildnation.cdm.util.exceptions.InvalidStateException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,15 @@ public class GlobalResponseEntityException {
     @ExceptionHandler(InsufficientFundBalanceException.class)
     public ResponseEntity<ApiResponse<Object>> handleInsufficientFundBalanceException(InsufficientFundBalanceException ex) {
         log.warn("Insufficient fund balance: {}", ex.getMessage());
+        return new ResponseEntity<>(
+                ApiResponse.error(HttpStatus.BAD_REQUEST.value(), ex.getMessage()),
+                HttpStatus.BAD_REQUEST
+        );
+    }
+
+    @ExceptionHandler(InvalidStateException.class)
+    public ResponseEntity<ApiResponse<Object>> handleInvalidStateException(InvalidStateException ex) {
+        log.warn("Invalid state transition: {}", ex.getMessage());
         return new ResponseEntity<>(
                 ApiResponse.error(HttpStatus.BAD_REQUEST.value(), ex.getMessage()),
                 HttpStatus.BAD_REQUEST

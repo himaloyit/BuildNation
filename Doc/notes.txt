@@ -361,7 +361,24 @@ build the next domain
    - Full District -> Upazila -> Union -> Ward -> Village CRUD chain works end-to-end through
      the gateway (create/get/list/update/delete), including FK linking and 404/400 error handling
    - Create endpoints are POST /api/v1/{resource}/create (member-management convention)
-2. [NEXT] Build the next domain inside constituency-development-management: fund management,
-   per the consolidation decision (region, fund, project, contractor, work-order/payment all
-   live in this one service, not separate microservices).
-   Then continue with: project -> contractor -> work-order/payment.
+2. [DONE] Fund Allocation needs a real FK to Project, and Project didn't exist yet -> decided to
+   build Project Management before Fund Management (reordering the original region -> fund ->
+   project -> ... sequence). Built Category -> SubCategory -> Project inside
+   constituency-development-management:
+   - Category/SubCategory: plain CRUD, same shape as the region hierarchy (Category has no
+     parent; SubCategory FKs to Category)
+   - Project: FKs to Category, SubCategory, and Village (single location FK, like Member's
+     constituencyId); fields estimatedCost, priorityScore, priorityRank, submittedBy,
+     currentCondition, status (ProjectStatus enum: NEW, PENDING_APPROVAL, APPROVED, ALLOCATED,
+     RUNNING, INSPECTION, COMPLETED, CANCELLED)
+   - Priority queue: PATCH /{id}/priority sets score; POST /priority-queue/recalculate sorts
+     NEW/PENDING_APPROVAL/APPROVED projects by score desc and writes rank 1..N; GET
+     /priority-queue returns them ordered by rank. Implements the spec's core scenario (rank
+     100 candidate projects, fund only reaches the top N each month).
+   - Photos/documents deferred (no MinIO/S3 wired into the repo yet)
+   - Verified end-to-end through the gateway: create Category/SubCategory/Project, priority
+     recalculation reorders correctly on score changes, status transitions, by-status/by-category
+     filters, delete + 404
+3. [NEXT] Fund Management: monthly fund records (category/sub-category, received/allocated/
+   spent/remaining amounts) with FundAllocation now pointing at a real Project FK.
+   Then continue with: contractor -> work-order/payment.

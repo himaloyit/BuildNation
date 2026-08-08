@@ -82,7 +82,8 @@ public class GatewayConfig {
                 // ── Constituency Development Management Route ───────────────────
                 .route("constituency-development-management-route", r -> r
                         .path("/api/v1/districts/**", "/api/v1/upazilas/**", "/api/v1/unions/**",
-                                "/api/v1/wards/**", "/api/v1/villages/**")
+                                "/api/v1/wards/**", "/api/v1/villages/**", "/api/v1/categories/**",
+                                "/api/v1/subcategories/**", "/api/v1/projects/**")
                         .filters(f -> f
                                 // 1. Circuit Breaker — fallback dispatched internally via forward:
                                 .circuitBreaker(config -> config

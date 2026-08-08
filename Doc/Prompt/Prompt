@@ -401,3 +401,118 @@ Please provide: These are the features need to add in the build nation project a
 *******************************From Claude AI Start******************************
 https://claude.ai/code/artifact/f975645f-1bee-4385-a680-0484138e3b22?via=auto_preview
 *******************************From Claude AI End********************************
+
+
+
+
+
+
+
+
+
+
+● User approved Claude's plan
+  ⎿  Plan saved to: ~\.claude\plans\elegant-shimmying-floyd.md · /plan to edit
+     Project Management Domain (constituency-development-management)
+
+     Context
+
+     Following the decided plan in Doc/notes.txt (region hierarchy → fund → project → contractor → work-order/payment), the user asked to build Fund Management next.
+     Fund Allocation, per the original spec (Doc/Prompt/Prompt, section 5), naturally targets a Project ("Temple A = 800,000"), but Project doesn't exist yet. When
+     asked how to handle that dependency, the user chose to build Project Management first, then Fund on top of it with a real FK — avoiding a throwaway placeholder
+     field.
+
+     This plan covers Project Management only (Category → SubCategory → Project, with the priority-ranking queue described in section 4 of the spec). Fund Management
+     follows in a subsequent step once this is in place.
+
+     Source of truth for requirements
+
+     Doc/Prompt/Prompt lines 104–184 (Development Category taxonomy, Project fields/status, Priority System) — this is the user's own spec from the original Claude
+     prompt.
+
+     Scope decisions (defaults applied, flag if you want different)
+
+     - Location FK: Project.villageId — a single required FK to the existing Village entity (most granular level already built), same pattern as Member.constituencyId
+     in member-management (one location FK, not multi-level).
+     - Photos/documents: deferred. The spec calls for them but MinIO/S3 isn't wired into this repo yet — adding real file upload now would be a separate infra piece.
+     Skipped for this pass.
+     - Submitted by: stored as a plain String submittedBy (no cross-service FK to security-access-control's User).
+     - Priority rank: stored as a plain field, kept in sync via an explicit recalculation endpoint (see below) rather than computed on every read — matches the manual,
+     batch-driven workflow described in the spec (ranks get reset once a month when new projects are added to the queue).
+
+     New entities (package com.himaloyit.buildnation.cdm.*, table prefix cons_)
+
+     Category — cons_category: id, name, code (unique) — e.g. Education, Religious, Medical, Government Office, Communication, Agriculture, Water, Electricity, Social
+     Welfare.
+
+     SubCategory — cons_subcategory: id, name, code, category (@ManyToOne, FK) — e.g. Mosque, Temple, Primary School.
+
+     Project — cons_project:
+     - id, name, description, currentCondition (String)
+     - category (@ManyToOne FK), subCategory (@ManyToOne FK), village (@ManyToOne FK)
+     - estimatedCost (BigDecimal)
+     - priorityScore (Integer, default 0), priorityRank (Integer, nullable — set by recalculation)
+     - submittedBy (String)
+     - status (ProjectStatus enum, default NEW)
+     - createdAt, updatedAt (LocalDateTime, set manually)
+
+     Enum domain/enums/ProjectStatus: NEW, PENDING_APPROVAL, APPROVED, ALLOCATED, RUNNING, INSPECTION, COMPLETED, CANCELLED (verbatim from spec section 3).
+
+     Pattern to follow (mirror existing region-hierarchy slice exactly)
+
+     Reference files already in the codebase:
+     - Entity: domain/entities/Upazila.java (FK-to-parent pattern)
+     - Mapper: domain/mapper/IUpazilaMapper.java (@Mapping(target = "xId", source = "x.id"))
+     - Repository: domain/repositories/iRepositories/IUpazilaRepository.java
+     - Service: services/impl/UpazilaService.java (constructor injection, @Cacheable/@CacheEvict/@CachePut with upazilas/upazilas-list cache names — no manual cache
+     registration needed, RedisConfig uses dynamic cache names)
+     - Controller: controllers/rest/UpazilaController.java (/create sub-path for POST, per repo convention)
+     - Status/role PATCH pattern: member-management's MemberController.updateMemberStatus + UpdateMemberStatusRequest (@NotNull enum field)
+
+     For each of Category, SubCategory, Project, create the same file set: domain/entities, domain/dto, domain/mapper (I*Mapper), domain/model (Create/Update requests),
+     domain/repositories/iRepositories (I*Repository), services/iServices + services/impl, controllers/rest.
+
+     Project-specific additions beyond plain CRUD
+
+     ProjectController (/api/v1/projects), in addition to create/get/list/update/delete:
+     - PATCH /{id}/status + UpdateProjectStatusRequest (@NotNull ProjectStatus status) — mirrors UpdateMemberStatusRequest
+     - PATCH /{id}/priority + UpdateProjectPriorityRequest (@NotNull Integer priorityScore) — sets score only; rank is derived
+     - GET /by-status/{status} (paginated) — mirrors getMembersByStatus
+     - GET /by-category/{categoryId} (paginated)
+     - GET /priority-queue?categoryId=&page=&size= — paginated, ordered by priorityRank ascending (nulls last), optional category filter — implements the "ranked queue"
+     from spec section 4
+     - POST /priority-queue/recalculate?categoryId= — service method: fetches projects with status in {NEW, PENDING_APPROVAL, APPROVED} (optionally filtered by
+     category), sorts by priorityScore descending, writes back priorityRank 1..N, evicts relevant caches. Directly implements the spec's core scenario ("100 temples
+     ranked, fund only reaches the top 10").
+
+     ICategoryRepository/ISubCategoryRepository/IProjectRepository: add findByCategoryId, and for Project a native/derived query for the recalculation fetch
+     (findByStatusInOrderByPriorityScoreDesc).
+
+     CategoryController/SubCategoryController: plain CRUD only, same shape as DistrictController/UpazilaController.
+
+     Gateway wiring
+
+     Extend the existing constituency-development-management-route in gateway-service-config/src/main/java/com/himaloyit/buildnation/gsc/config/GatewayConfig.java (same
+     backing service, same circuit breaker) by adding these path patterns to its .path(...) call:
+     "/api/v1/categories/**", "/api/v1/subcategories/**", "/api/v1/projects/**"
+     No new resilience4j config block needed (already keyed on constituency-development-management). No pom.xml / docker-compose changes needed — same module, same
+     service.
+
+     Verification
+
+     1. cd constituency-development-management && ./mvnw clean package (and cd gateway-service-config && ./mvnw clean package since GatewayConfig.java changes) —
+     confirm build succeeds (MapStruct codegen, no compile errors).
+     2. Rebuild + restart the two Docker images (docker compose build constituency-development-management gateway-service-config && docker compose up -d).
+     3. Through the gateway (localhost:8081), exercise the same way step 1 was tested for the region hierarchy:
+       - Create a Category, a SubCategory under it, and a Project referencing that category/subcategory/an existing Village
+       - GET /api/v1/projects/{id}, paginated list, PUT update
+       - PATCH /{id}/priority a few projects with different scores, then POST /priority-queue/recalculate, then GET /priority-queue and confirm rank ordering matches
+     score ordering
+       - PATCH /{id}/status through a couple of status transitions
+       - Delete and confirm 404
+     4. Append a short "Project Management domain — done" entry to Doc/notes.txt's decided-plan section (matching the pattern used for the region-hierarchy entry),
+     noting Fund Management is next.
+     </content>
+
+
+

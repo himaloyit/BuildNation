@@ -466,3 +466,42 @@ build the next domain
 This is the full spec from Doc/Prompt/Prompt now implemented in constituency-development-
 management. Nothing further planned unless the user requests a new domain (e.g. analytics/
 dashboards from section 10, or role-based access per section 11).
+
+6. [DONE] Package restructure (2026-08-09): user asked to split the flat
+   com.himaloyit.buildnation.cdm.* package into a per-domain sub-package layout, explicitly
+   to make future microservice extraction easier. Moved every domain-specific class
+   (entities/dto/mapper/model/enums/repositories/services/controllers) out of the flat
+   cdm.domain.*/cdm.services.*/cdm.controllers.* tree into:
+   - com.himaloyit.buildnation.cdm.region.* (District/Upazila/Union/Ward/Village)
+   - com.himaloyit.buildnation.cdm.prj.* (Category/SubCategory/Project)
+   - com.himaloyit.buildnation.cdm.fund.* (Fund/FundAllocation)
+   - com.himaloyit.buildnation.cdm.contractor.* (Contractor)
+   - com.himaloyit.buildnation.cdm.wo.* (WorkOrder/Payment/Inspection)
+   Each follows cdm.{code}.controllers.rest / cdm.{code}.domain.{entities,dto,mapper,model,
+   enums} / cdm.{code}.domain.repositories.iRepositories / cdm.{code}.services.{iServices,impl}.
+
+   Shared infrastructure (ApiResponse, GlobalResponseEntityException, EntityNotFoundException/
+   InvalidStateException/InsufficientFundBalanceException, RedisConfig) moved to a new
+   cdm.common.* package (common.model, common.exceptions, common.config, common.advice) since
+   these are used across every domain, not owned by one. The main Application class stays at
+   the cdm root.
+
+   Mechanical execution: git mv every file into its new location, sed-based bulk rename of
+   every import statement across the whole module (one substitution rule per moved class,
+   ~143 rules), then manually added NEW import statements to Project/FundAllocation/Fund/
+   WorkOrder entities - these four previously relied on same-package implicit visibility
+   (all entities used to live together in one flat cdm.domain.entities package) to reference
+   other domains' entities (Village, Project, Category/SubCategory, Project+Contractor+
+   FundAllocation respectively), which breaks once those types move to different packages
+   and needs an explicit import. Also fixed 5 wildcard `import cdm.domain.model.*;` in
+   controllers that needed splitting into an explicit common.model.ApiResponse import plus
+   a same-domain domain.model.* wildcard.
+
+   Verified: mvn clean package compiles clean, docker rebuild + restart, and a full gateway
+   smoke test across all 5 domains' list endpoints confirmed every pre-existing DB row still
+   maps correctly (JPA doesn't persist package names, only table/column names, so this was
+   low-risk but confirmed anyway) - no data or behavior regression.
+
+   Note for future domains (e.g. any new work-order sub-feature): if a new entity in one
+   domain package references an entity in another domain package, it needs an explicit
+   import - there is no more single flat package to rely on for implicit same-package access.

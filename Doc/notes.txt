@@ -505,3 +505,38 @@ dashboards from section 10, or role-based access per section 11).
    Note for future domains (e.g. any new work-order sub-feature): if a new entity in one
    domain package references an entity in another domain package, it needs an explicit
    import - there is no more single flat package to rely on for implicit same-package access.
+
+7. [DONE - SKELETON ONLY, per explicit user decision] Audit Trail domain (spec section 11:
+   "who changed what, old value, new value, date/time") built as a standalone
+   com.himaloyit.buildnation.cdm.audit.* package (same per-domain shape as region/prj/fund/
+   contractor/wo).
+   - AuditLog entity (cons_audit_log, no FKs - entityType+entityId are a soft reference, since
+     one table covers every entity type in the service): entityType, entityId, action
+     (AuditAction: CREATE/UPDATE/DELETE), oldValue/newValue (TEXT, nullable), performedBy
+     (defaults to "system" if not supplied), performedAt.
+   - Append-only by design: only POST /create + GET/query endpoints exist. No PUT, no DELETE
+     - verified both return 405. This is deliberately different from every other domain
+     (which all have full CRUD) since editing/deleting audit history defeats its purpose.
+   - old/new value are whole-record string snapshots (e.g. an entity's toString()), not
+     per-field diffs - true field-level diffing would need either hand-written comparison
+     logic at ~70 call sites across the 14 existing service classes, or a Hibernate
+     event-listener mechanism the user explicitly opted out of.
+   - EXPLICITLY NOT WIRED into any of the other 14 service classes yet - no create/update/
+     delete/status-change method anywhere else calls IAuditService.logAudit(...) yet. This
+     was a deliberate scope decision: build the skeleton now, wire it in later after
+     security-access-control's identity propagation matures (see next point).
+   - performedBy is an unverified plain string for now - no JWT/header wiring added anywhere.
+     The gateway still does not validate or forward any user identity to backend services
+     (confirmed again this session - only rate-limiting/circuit-breaking/CORS exist there).
+     Real "who" attribution requires that cross-service work first; deferred per user's
+     explicit choice.
+   - Verified end-to-end through the gateway: created CREATE/UPDATE/DELETE entries against a
+     real Project id (with and without performedBy, confirming the "system" default), plus an
+     unrelated Contractor entry; confirmed by-entity/by-entity-type/by-performed-by filters
+     all return exactly the right rows; confirmed PUT and DELETE both 405.
+
+NEXT STEPS available (none decided/started): wire IAuditService.logAudit(...) calls into the
+14 existing service classes once real identity propagation exists; JWT validation + identity
+header forwarding through the gateway (security-access-control -> gateway -> every backend
+service); analytics/dashboards (spec section 10); dynamic RBAC (spec section 11, the other
+half of "Security" beyond audit trail).

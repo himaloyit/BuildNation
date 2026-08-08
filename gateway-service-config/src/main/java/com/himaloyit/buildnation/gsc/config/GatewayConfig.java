@@ -85,7 +85,7 @@ public class GatewayConfig {
                                 "/api/v1/wards/**", "/api/v1/villages/**", "/api/v1/categories/**",
                                 "/api/v1/subcategories/**", "/api/v1/projects/**", "/api/v1/funds/**",
                                 "/api/v1/fund-allocations/**", "/api/v1/contractors/**", "/api/v1/work-orders/**",
-                                "/api/v1/payments/**", "/api/v1/inspections/**")
+                                "/api/v1/payments/**", "/api/v1/inspections/**", "/api/v1/audit-logs/**")
                         .filters(f -> f
                                 // 1. Circuit Breaker — fallback dispatched internally via forward:
                                 .circuitBreaker(config -> config

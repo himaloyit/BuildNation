@@ -814,3 +814,90 @@ https://claude.ai/code/artifact/f975645f-1bee-4385-a680-0484138e3b22?via=auto_pr
 
 
 
+
+ Ready to code?
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ Audit Trail Domain (constituency-development-management)
+
+ Context
+
+ Spec section 11 (Doc/Prompt/Prompt) calls for a complete audit trail: "who changed what, old value, new value, date/time." Per your answers: build the domain skeleton
+ now (entity, service, query API) as a standalone cdm.audit.* package following the same convention as the other five domains; do NOT wire calls into the other 14
+ existing service classes yet — that instrumentation, and real caller-identity capture, is deferred until after security-access-control's auth work matures enough to
+ propagate a real user identity through the gateway. The service-layer contract is designed now so that wiring it in later (and later still, feeding it a real
+ identity) requires no redesign — just calling it.
+
+ Design decisions
+
+ - No update/delete endpoints. An audit trail is an append-only ledger — allowing edits or deletes would defeat its purpose. Only create + read/query endpoints exist.
+ This is different from every other domain built so far (all of which have full CRUD) and is a deliberate exception.
+ - Old/new value are whole-record snapshots, not per-field diffs. True field-by-field diffing would require either (a) hand-written comparison logic at every one of
+ the ~70 call sites across 14 service classes, or (b) a Hibernate event-listener mechanism you explicitly opted out of. Instead, IAuditService.log(...) takes
+ oldValue/newValue as plain strings — the caller passes a snapshot (e.g. the entity's or DTO's Lombok-generated toString()) before and after the change. One line per
+ call site when this gets wired in later; still captures genuine old/new state, just at record granularity instead of field granularity.
+ - performedBy is an unverified plain string for now. No header-reading or auth wiring added anywhere yet, per your answer — that's explicitly future work once
+ security-access-control's identity propagation exists. Defaults to "system" if not supplied.
+ - Not wired into the other 14 service classes in this pass. Region/Project/Fund/Contractor/WorkOrder-Payment-Inspection services are untouched. The domain is fully
+ buildable and testable standalone (manually create/query audit entries through its own API) but produces no audit records automatically yet.
+
+ New package: com.himaloyit.buildnation.cdm.audit.*
+
+ Same shape as every other domain built this session: domain.entities, domain.enums, domain.dto, domain.mapper, domain.model, domain.repositories.iRepositories,
+ services.iServices, services.impl, controllers.rest.
+
+ Enum AuditAction: CREATE, UPDATE, DELETE.
+
+ Entity AuditLog (table cons_audit_log, no FKs — entityType+entityId are a soft reference to a record in any other domain, not a real JPA relation, since one audit
+ table covers every entity type in the service):
+ - id (UUID)
+ - entityType (String — e.g. "Project", "Fund")
+ - entityId (UUID)
+ - action (AuditAction)
+ - oldValue (String, TEXT, nullable — null for CREATE)
+ - newValue (String, TEXT, nullable — null for DELETE)
+ - performedBy (String, nullable, defaults to "system")
+ - performedAt (LocalDateTime, set at creation — this entity has no updatedAt, since audit rows are never updated)
+
+ IAuditService (the contract other services will call later, in-process — not over HTTP):
+ AuditLogDTO logAudit(String entityType, UUID entityId, AuditAction action, String oldValue, String newValue, String performedBy);
+ AuditLogDTO getAuditLog(UUID id);
+ Page<AuditLogDTO> getAllAuditLogs(Pageable pageable);
+ Page<AuditLogDTO> getAuditLogsByEntity(String entityType, UUID entityId, Pageable pageable);
+ Page<AuditLogDTO> getAuditLogsByEntityType(String entityType, Pageable pageable);
+ Page<AuditLogDTO> getAuditLogsByPerformedBy(String performedBy, Pageable pageable);
+
+ Endpoints (/api/v1/audit-logs)
+
+ - POST /create (CreateAuditLogRequest{entityType, entityId, action, oldValue, newValue, performedBy}) — manual/administrative entry point; also how the skeleton gets
+ tested end-to-end before it's wired into other services
+ - GET /{id}
+ - GET (paginated list)
+ - GET /by-entity/{entityType}/{entityId} (paginated) — "full history of this one record," the most useful query once this is wired in
+ - GET /by-entity-type/{entityType} (paginated)
+ - GET /by-performed-by/{performedBy} (paginated)
+ - No PUT, no DELETE (see design decisions above)
+
+ Pattern to follow
+
+ Mirror the plain-CRUD-minus-mutation shape of Category/CategoryController (constituency-development-management/src/main/java/com/himaloyit/buildnation/cdm/prj/...)
+ for the file layout, but drop update/delete entirely. Reuse common.model.ApiResponse and common.exceptions.EntityNotFoundException (already relocated in the last
+ refactor).
+
+ Gateway wiring
+
+ Add "/api/v1/audit-logs/**" to the existing constituency-development-management-route path list in gateway-service-config/.../GatewayConfig.java.
+
+ Verification
+
+ 1. cd constituency-development-management && ./mvnw clean package and cd gateway-service-config && ./mvnw clean package.
+ 2. docker compose build constituency-development-management gateway-service-config && docker compose up -d, wait for health, let the gateway circuit breaker settle.
+ 3. Through the gateway: create a couple of audit log entries (one CREATE with only newValue, one UPDATE with both oldValue/newValue, one DELETE with only oldValue)
+ against a real existing entity id (e.g. a Project id from earlier testing), then verify GET /by-entity/{type}/{id}, GET /by-entity-type/{type}, and GET
+ /by-performed-by/{who} all filter correctly. Confirm there is no PUT/DELETE route registered (404/405 on those methods).
+ 4. Append a note to Doc/notes.txt recording this as a deferred-instrumentation skeleton (per your decision), and update the persisted cdm_service.md memory.
+ </content>
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+
+
+

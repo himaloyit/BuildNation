@@ -379,6 +379,22 @@ build the next domain
    - Verified end-to-end through the gateway: create Category/SubCategory/Project, priority
      recalculation reorders correctly on score changes, status transitions, by-status/by-category
      filters, delete + 404
-3. [NEXT] Fund Management: monthly fund records (category/sub-category, received/allocated/
-   spent/remaining amounts) with FundAllocation now pointing at a real Project FK.
-   Then continue with: contractor -> work-order/payment.
+3. [DONE] Fund Management built inside constituency-development-management: Fund and
+   FundAllocation.
+   - Fund: month (LocalDate, normalized to 1st of month), fundType (free text), optional
+     category/subCategory FKs (earmarked vs general-purpose fund), receivedAmount,
+     allocatedAmount/remainingAmount (maintained by the service, not computed on read),
+     spentAmount (placeholder, defaults 0, no work-order/payment domain to consume it yet)
+   - FundAllocation: FKs to Fund + Project, amount. Immutable (no PUT) - amount changes are
+     delete+recreate. Creating one checks amount <= fund.remainingAmount
+     (else 400 InsufficientFundBalanceException), updates the fund's allocated/remaining
+     totals, and flips the project to ALLOCATED status via IProjectService (closing the loop
+     on that enum value from the Project domain). Deleting an allocation reverses the fund
+     balance but deliberately does NOT revert the project's status back.
+   - History/audit trail deferred (spec section 11 is a cross-cutting concern for the whole
+     system, not fund-specific)
+   - Verified end-to-end through the gateway: create fund, allocate to two projects (balance
+     and project status both update correctly), over-allocation correctly rejected with 400,
+     delete reverses the fund balance without touching project status, by-fund/by-project
+     filters both correct, 404 on double-delete
+4. [NEXT] Contractor/Vendor management, then work-order/payment.

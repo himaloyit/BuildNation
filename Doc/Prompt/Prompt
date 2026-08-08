@@ -515,4 +515,108 @@ https://claude.ai/code/artifact/f975645f-1bee-4385-a680-0484138e3b22?via=auto_pr
      </content>
 
 
+***********************************************************************************************************************
+
+ Ready to code?
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ Fund Management Domain (constituency-development-management)
+
+ Context
+
+ Per Doc/notes.txt's decided plan, Project Management was built first (commit 3d19201) specifically so Fund Allocation could carry a real FK to Project instead of a
+ placeholder. This plan builds Fund Management on top of that: monthly fund records (Doc/Prompt/Prompt section 5) plus allocation of those funds to specific projects
+ (e.g. "Temple A = 800,000"), which also drives the project into ALLOCATED status — closing the loop on the ProjectStatus enum value that's existed unused since the
+ Project domain was built.
+
+ Source of truth
+
+ Doc/Prompt/Prompt lines 187–219 (Fund Management: monthly records, tracked amounts, allocation to named projects).
+
+ Scope decisions (defaults applied, flag if you want different)
+
+ - Fund category/sub-category are optional FKs (nullable Category/SubCategory), not required — a fund can be general-purpose for the month or earmarked to one taxonomy
+ branch. Project already carries its own category/subcategory; this is a separate, coarser dimension on the fund itself, matching the spec's "Fund Category / Fund Sub
+ Category" as tracked attributes of the fund record.
+ - month: stored as LocalDate, normalized to the 1st of the month in the service layer (so 2026-06-15 and 2026-06-01 both save as 2026-06-01) — avoids adding a custom
+ YearMonth JPA converter for no real benefit.
+ - fundType: plain String (spec doesn't enumerate values, so no enum — same treatment as Project.currentCondition).
+ - allocatedAmount / remainingAmount: persisted columns, maintained transactionally by the service whenever an allocation is created or deleted (not derived on every
+ read) — same pattern as Project.priorityRank, which is also an explicitly-maintained field rather than a computed one.
+ - spentAmount: persisted, defaults to 0, NOT auto-updated yet — there's no work-order/payment domain to consume it from. It's a placeholder column for that future
+ slice, per the region→fund→project→contractor→work-order/payment sequence.
+ - History/audit trail: deferred. Spec section 11 ("who changed what, old value, new value") is a cross-cutting concern for the whole system, not specific to Fund —
+ out of scope here, same reasoning as deferring Project's photo/document uploads.
+ - Allocation is immutable: no PUT update on FundAllocation — to change an amount, delete and recreate (this keeps the fund balance math a simple add/subtract pair
+ instead of a diff).
+ - Deleting an allocation reverses the fund's balance (allocatedAmount -= amount, remainingAmount += amount) but does not revert the project's status — once a project
+ is marked ALLOCATED that's treated as a durable milestone, not something to silently roll back.
+
+ New entities (package com.himaloyit.buildnation.cdm.*, table prefix cons_)
+
+ Fund — cons_fund:
+ - id, month (LocalDate, day=1), fundType (String)
+ - category (@ManyToOne, nullable FK), subCategory (@ManyToOne, nullable FK)
+ - receivedAmount, allocatedAmount (default 0), spentAmount (default 0), remainingAmount (= receivedAmount initially) — all BigDecimal
+ - createdAt, updatedAt
+
+ FundAllocation — cons_fund_allocation:
+ - id, fund (@ManyToOne FK, required), project (@ManyToOne FK, required), amount (BigDecimal)
+ - createdAt, updatedAt
+
+ New exception: util/exceptions/InsufficientFundBalanceException — thrown when an allocation amount exceeds fund.remainingAmount. Add a handler in
+ GlobalResponseEntityException returning 400 Bad Request (mirrors the existing EntityNotFoundException → 404 handler).
+
+ Pattern to follow (already established in this codebase)
+
+ - Plain CRUD entity: Category/CategoryService/CategoryController (nullable-FK variant: same shape, just nullable = true on the @JoinColumns and null-safe lookups in
+ the service)
+ - FK-lookup + business-rule service method: ProjectService.createProject (validates FKs exist before building the entity) — FundAllocationService.createAllocation
+ follows this same shape plus the balance check and the project-status side effect
+ - Exception + handler pattern: EntityNotFoundException + GlobalResponseEntityException.handleEntityNotFoundException
+ (constituency-development-management/src/main/java/com/himaloyit/buildnation/cdm/controllers/advice/GlobalResponseEntityException.java)
+ - Status-mutation service method: ProjectService.updateProjectStatus
+ (constituency-development-management/src/main/java/com/himaloyit/buildnation/cdm/services/impl/ProjectService.java) — reuse IProjectService.updateProjectStatus
+ (inject IProjectService, not the repository directly, to keep the existing caching/logging behavior) to flip the project to ALLOCATED from within
+ FundAllocationService
+
+ For each of Fund and FundAllocation, create the same file set as the Project slice: domain/entities, domain/dto, domain/mapper (I*Mapper), domain/model (Create/Update
+ requests), domain/repositories/iRepositories (I*Repository), services/iServices + services/impl, controllers/rest.
+
+ Endpoints
+
+ FundController (/api/v1/funds): create, get-by-id, paginated list, update (fundType/receivedAmount/category/subCategory only — not the maintained amount fields),
+ delete, GET /by-category/{categoryId} (paginated).
+
+ FundAllocationController (/api/v1/fund-allocations):
+ - POST /create (CreateFundAllocationRequest { fundId, projectId, amount }) — looks up Fund + Project, checks amount <= fund.remainingAmount (else
+ InsufficientFundBalanceException), creates the allocation row, updates fund.allocatedAmount/remainingAmount, calls iProjectService.updateProjectStatus(projectId,
+ ALLOCATED)
+ - GET /{id}, paginated list
+ - GET /by-fund/{fundId} (paginated), GET /by-project/{projectId} (paginated)
+ - DELETE /{id} — reverses the fund balance (see scope decisions), does not touch project status
+
+ Gateway wiring
+
+ Extend the existing constituency-development-management-route path list in
+ gateway-service-config/src/main/java/com/himaloyit/buildnation/gsc/config/GatewayConfig.java with "/api/v1/funds/**" and "/api/v1/fund-allocations/**" (same backing
+ service/circuit breaker, no new resilience4j block needed — same as how the Project paths were added last time).
+
+ Verification
+
+ 1. cd constituency-development-management && ./mvnw clean package and cd gateway-service-config && ./mvnw clean package — confirm both build clean.
+ 2. docker compose build constituency-development-management gateway-service-config && docker compose up -d — restart both containers, wait for cdm health check.
+ 3. Through the gateway (localhost:8081):
+   - Create a Fund (e.g. month=2026-06-01, fundType="Development Fund", receivedAmount=5,000,000, categoryId=Religious from the existing test data)
+   - Create two Projects (or reuse the ones from the Project domain test) and allocate funds to each via POST /api/v1/fund-allocations/create — confirm
+ fund.allocatedAmount/remainingAmount update correctly and each project's status flips to ALLOCATED
+   - Attempt an allocation exceeding the remaining balance — confirm 400 with the insufficient-balance message
+   - DELETE one allocation — confirm the fund balance is restored and the project's status is unchanged
+   - GET /by-fund/{fundId} and GET /by-project/{projectId} return the right rows
+ 4. Append a "Fund Management domain — done" entry to Doc/notes.txt's decided-plan section, noting contractor management is next.
+ 5. Update the persisted cdm_service.md memory with the new domain, same as was done for Project Management.
+ </content>
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+
+
 

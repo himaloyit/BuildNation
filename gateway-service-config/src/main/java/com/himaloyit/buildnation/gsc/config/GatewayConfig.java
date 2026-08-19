@@ -62,7 +62,8 @@ public class GatewayConfig {
 
                 // ── Security Access Control Route ────────────────────────────────
                 .route("security-access-control-route", r -> r
-                        .path("/api/v1/auth/**")
+                        .path("/api/v1/auth/**", "/api/v1/principals/**", "/api/v1/roles/**",
+                                "/api/v1/permissions/**", "/api/v1/resources/**", "/api/v1/authz/**")
                         .filters(f -> f
                                 // 1. Circuit Breaker — fallback dispatched internally via forward:
                                 .circuitBreaker(config -> config

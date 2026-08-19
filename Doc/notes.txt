@@ -535,8 +535,70 @@ dashboards from section 10, or role-based access per section 11).
      unrelated Contractor entry; confirmed by-entity/by-entity-type/by-performed-by filters
      all return exactly the right rows; confirmed PUT and DELETE both 405.
 
+8. [DONE] Principal-based RBAC (Doc/Prompt/Prompt-1) built inside security-access-control -
+   Principal fully replaces the old User/UserRole (deleted outright, not kept alongside).
+   - Package restructure: rbac now covers the WHOLE service (not just the new entities) -
+     every existing auth class (SecurityConfig, JwtAuthenticationFilter,
+     UserDetailsServiceImpl, JwtTokenProvider, AuthServiceImpl, AuthController,
+     GlobalResponseEntityException, RedisConfig, ApiResponse/RegisterRequest/LoginRequest/
+     RefreshTokenRequest/AuthResponse) moved from com.himaloyit.buildnation.sac.* into
+     com.himaloyit.buildnation.sac.rbac.*. Only the Application main class stays at the
+     sac root.
+   - New entities: Principal (sole identity table for humans AND machines - principalType
+     USER/MOBILE_APP/WEB_APP/EXTERNAL_SYSTEM/AI_AGENT/SERVICE_ACCOUNT/MICROSERVICE; email
+     optional+unique, required only for USER; password/credentialType/enabled/
+     accountNonLocked/expiresAt/lastLoginAt/ownerContact/description), Role, Resource
+     (apiPath+httpMethod), Permission (FK to Resource, action enum), PrincipalRole and
+     RolePermission (join tables). All six share a new RbacAuditableEntity
+     @MappedSuperclass (status/createdBy/createdDate/updatedBy/updatedDate/@Version) - new
+     pattern for this codebase, scoped to the rbac package only.
+   - JWT subject is always principalCode (never email - email only exists for USER type).
+     UserDetailsServiceImpl does a dual lookup (principalCode first, falls back to email)
+     so the same method serves both login (email) and per-request token resolution
+     (principalCode). No role/permission claims embedded in the JWT - IAuthorizationService
+     resolves both fresh from the DB every request (Redis-cached, evicted on role/permission
+     assignment changes), per the spec's explicit "load from DB, not from token" design.
+   - Every RBAC endpoint gated with @PreAuthorize("hasAuthority('PERMISSION_{entity}:
+     {action}')") matching seeded codes (principal/role/permission/resource x
+     create/view/update/delete).
+   - RbacSeeder (idempotent CommandLineRunner) seeds the 6 spec roles (ADMIN, MP_MINISTER,
+     PROJECT_OFFICER, ENGINEER, FINANCE_OFFICER, VIEWER), 16 resources+permissions scoped to
+     this service's own new admin API (NOT member-management/cdm endpoints - deferred until
+     cross-service enforcement exists), ADMIN->all permissions, VIEWER->view-only, and a
+     bootstrap admin@buildnation.local Principal with the ADMIN role (configurable via
+     rbac.admin.email/rbac.admin.password) - without this nobody could ever reach ADMIN,
+     since assigning a role requires principal:update which only ADMIN holds.
+
+   BUGS FOUND AND FIXED during verification (none were in the original plan):
+   - No @PreAuthorize had actually been wired onto any controller - permission codes existed
+     and were seeded, but authorization was a no-op (any authenticated principal could do
+     anything). Added to all four CRUD controllers.
+   - AccessDeniedException from @PreAuthorize was being caught by GlobalResponseEntityException's
+     generic Exception handler and returned as 500 instead of 403 (Spring MVC's
+     @ExceptionHandler resolution runs before Spring Security's ExceptionTranslationFilter
+     would otherwise convert it). Added an explicit handler.
+   - Deleting a Role/Permission/Resource still referenced by a join row threw a raw
+     DataIntegrityViolationException -> 500 with a SQL stack trace in the response. Added a
+     generic handler -> 409, covering every entity's delete endpoint.
+   - Same root-cause class as the two Redis-cache bugs found in the cdm module earlier
+     (item 4/5 above): correctness gaps only surface under real request-flow testing, not
+     compilation.
+
+   Verified end-to-end through the gateway: register (default VIEWER role) -> login (JWT
+   subject is principalCode, no role claim) -> VIEWER blocked from POST /roles/create (403)
+   but can GET /roles (200) -> admin assigns ADMIN role to that principal -> re-login shows
+   both roles and the same create call now succeeds (cache eviction confirmed; createdBy
+   correctly shows the caller's principalCode) -> authz check/check-access endpoints match ->
+   SERVICE_ACCOUNT principal created with no email (nullable+unique confirmed, not blanket
+   NOT NULL) -> delete-with-references returns 409 not 500 -> duplicate code returns 409 ->
+   delete-then-404 confirmed.
+
+   Full implementation plan (as executed, including the corrections above) appended to the
+   end of Doc/Prompt/Prompt-1.
+
 NEXT STEPS available (none decided/started): wire IAuditService.logAudit(...) calls into the
-14 existing service classes once real identity propagation exists; JWT validation + identity
-header forwarding through the gateway (security-access-control -> gateway -> every backend
-service); analytics/dashboards (spec section 10); dynamic RBAC (spec section 11, the other
-half of "Security" beyond audit trail).
+14 existing cdm service classes once real identity propagation exists; cross-service
+enforcement - gateway validates the JWT and forwards trusted identity/permission headers to
+member-management/cdm, which then check them (this also finally lets AuditLog capture a real
+performedBy instead of a client-supplied string); analytics/dashboards (Prompt section 10);
+seeding RBAC resources/permissions for member-management/cdm endpoints once the above exists.

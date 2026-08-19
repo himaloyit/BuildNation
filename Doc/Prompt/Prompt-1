@@ -1,0 +1,426 @@
+
+*******************************Prompt for Claude AI start****************************
+# Production-ready RBAC authorization module for a Spring Boot microservice architecture
+
+I am building a production-grade Spring Boot microservice architecture. The APIs will be consumed by multiple types of clients:
+
+* Mobile App
+* Web App
+* External Partner Systems
+* Internal Microservices
+* AI Agents
+* Service Accounts
+
+I need a **future-proof Role-Based Access Control (RBAC) system** using the model:
+
+**Principal → Role → Permission → Resource**
+
+A **Principal** represents any authenticated identity (human user, mobile app, web app, AI agent, external system, service account, or microservice).
+
+## Tech Stack
+
+* Java 17
+* Spring Boot 3.x
+* Spring Security 6
+* Spring Data JPA
+* Hibernate
+* PostgreSQL
+* Maven
+* JWT authentication
+* Microservice architecture with API Gateway
+* Token will be validated from Gateway.
+
+## Generate the following
+
+### 1. Domain Model
+
+Design the following entities with proper JPA annotations:
+
+#### Principal
+
+This entity fully replaces security-access-control's existing `User` entity (`sac_users` table) — `User` and `UserRole` are to be deleted, not kept alongside Principal. Principal is the sole identity table for every caller type, human or machine. Login/register/JWT issuance (currently built against `User`) must be re-pointed to Principal.
+
+Fields:
+
+* principalId
+* principalCode (unique — for principalType=USER this can be the same value as email or a separate login handle; for machine principals it's the primary login identifier, e.g. "mobile-app", "fraud-agent")
+* principalName
+* principalType (USER, MOBILE_APP, WEB_APP, EXTERNAL_SYSTEM, AI_AGENT, SERVICE_ACCOUNT, MICROSERVICE)
+* email (optional, nullable — required and unique only when principalType = USER; use a partial unique index `WHERE email IS NOT NULL`, not a blanket unique constraint, since most other principal types won't have one)
+* password (optional, nullable — BCrypt hash, replaces `User.password`; populated only when credentialType = PASSWORD)
+* credentialType (PASSWORD, API_KEY, CLIENT_CERT, OAUTH_CLIENT_CREDENTIALS — determines how this principal authenticates; USER principals use PASSWORD, machine principals typically use API_KEY/CLIENT_CERT/OAUTH_CLIENT_CREDENTIALS)
+* enabled (boolean, default true — replaces `User.enabled`; Spring Security UserDetails.isEnabled(), kept separate from `status` since it's a login-eligibility flag, not the entity's admin-facing lifecycle state)
+* accountNonLocked (boolean, default true — replaces `User.accountNonLocked`; Spring Security UserDetails.isAccountNonLocked())
+* expiresAt (LocalDateTime, nullable — credential/access expiry; mainly relevant for SERVICE_ACCOUNT/EXTERNAL_SYSTEM/AI_AGENT principals that need periodic credential rotation)
+* lastLoginAt (LocalDateTime, nullable — last successful authentication, for security monitoring across all principal types)
+* ownerContact (String, nullable — accountability contact for machine principals, e.g. the team/person to page if a SERVICE_ACCOUNT or AI_AGENT misbehaves; not applicable to USER principals)
+* description (String, nullable — free-text notes on what/who this principal is, mainly useful for non-USER principal types where principalName alone isn't self-explanatory)
+* status
+* createdBy
+* createdDate
+* updatedBy
+* updatedDate
+* version (@Version)
+
+#### Role
+
+Fields:
+
+* roleId
+* roleCode (unique)
+* roleName
+* description
+* status
+* createdBy
+* createdDate
+* updatedBy
+* updatedDate
+* version
+
+#### Resource
+
+Represents protected API resources.
+
+Fields:
+
+* resourceId
+* resourceCode (unique)
+* resourceName
+* serviceName
+* apiPath
+* httpMethod (GET, POST, PUT, PATCH, DELETE)
+* resourceType (API, SCREEN, EVENT, FILE)
+* status
+* createdBy
+* createdDate
+* updatedBy
+* updatedDate
+* version
+
+#### Permission
+
+Represents an action on a resource.
+
+Fields:
+
+* permissionId
+* permissionCode (unique)
+* permissionName
+* action (VIEW, CREATE, UPDATE, DELETE, EXECUTE, BLOCK, UNBLOCK)
+* resource (ManyToOne)
+* status
+* createdBy
+* createdDate
+* updatedBy
+* updatedDate
+* version
+
+#### PrincipalRole
+
+Many-to-many mapping between Principal and Role.
+
+Fields:
+
+* principalRoleId
+* principal (ManyToOne)
+* role (ManyToOne)
+* status
+* createdBy
+* createdDate
+* updatedBy
+* updatedDate
+* version
+
+Add a unique constraint on (principal_id, role_id).
+
+#### RolePermission
+
+Many-to-many mapping between Role and Permission.
+
+Fields:
+
+* rolePermissionId
+* role (ManyToOne)
+* permission (ManyToOne)
+* status
+* createdBy
+* createdDate
+* updatedBy
+* updatedDate
+* version
+
+Add a unique constraint on (role_id, permission_id).
+
+### 2. Enumerations
+
+Generate enums for:
+
+* PrincipalType
+* CredentialType (PASSWORD, API_KEY, CLIENT_CERT, OAUTH_CLIENT_CREDENTIALS)
+* Status
+* HttpMethod
+* ResourceType
+* Action
+
+### 3. Repository Layer
+
+Create Spring Data JPA repositories for all entities.
+
+Include useful query methods such as:
+
+* findByPrincipalCode
+* findByRoleCode
+* findByPermissionCode
+* findByResourceCode
+* findByApiPathAndHttpMethod
+
+### 4. Authorization Service
+
+Create an `AuthorizationService` that can answer:
+
+* Does a principal have a specific permission?
+* Does a principal have access to a specific API path and HTTP method?
+* Get all permissions of a principal.
+* Get all roles of a principal.
+
+The service should efficiently join Principal → Role → Permission → Resource.
+
+### 5. JWT Integration
+
+Assume JWT authentication already exists.
+
+Implement a custom `JwtAuthenticationConverter` that loads roles and permissions from the database and places them into Spring Security `GrantedAuthority`.
+
+Use:
+
+* ROLE_xxx for roles
+* PERMISSION_xxx for permissions
+
+### 6. Spring Security Configuration
+
+Generate a Spring Security configuration that:
+
+* uses JWT authentication
+* authenticates all requests
+* supports method-level security
+* allows authorization using permissions
+
+Example:
+
+@PreAuthorize("hasAuthority('PERMISSION_CARD_BLOCK')")
+
+### 7. Sample Seed Data
+
+Generate SQL insert scripts for:
+
+Principals
+
+* rajib (USER)
+* mobile-app (MOBILE_APP)
+* fraud-agent (AI_AGENT)
+
+Roles
+
+* CARD_OPERATOR
+* CARD_ADMIN
+* AI_READ_ONLY
+
+Resources
+
+* CARD_API (/api/cards/**)
+* CUSTOMER_API (/api/customers/**)
+
+Permissions
+
+* CARD_VIEW
+* CARD_CREATE
+* CARD_BLOCK
+
+Mappings
+
+* CARD_OPERATOR → CARD_VIEW
+* CARD_OPERATOR → CARD_BLOCK
+* CARD_ADMIN → all card permissions
+* AI_READ_ONLY → CARD_VIEW
+
+Principal assignments
+
+* rajib → CARD_OPERATOR
+* fraud-agent → AI_READ_ONLY
+
+### 8. Database Schema
+
+Generate PostgreSQL DDL with:
+
+* primary keys
+* foreign keys
+* indexes
+* unique constraints
+* optimistic locking
+* audit columns
+
+### 9. Package Structure
+
+RBAC is the entire purpose of security-access-control (there is no other feature in this service), so the rbac package segment applies uniformly to EVERYTHING in the service — not just the 6 new entities. There is no split between "new stuff under sac.rbac.*" and "old auth stack under sac.*". Do NOT create a new top-level service or use a generic com.example.auth package.
+
+Base package for the whole service: com.himaloyit.buildnation.sac.rbac
+
+Only the Spring Boot main class (SecurityAccessControlApplication) stays at the com.himaloyit.buildnation.sac root (standard convention — sac.rbac.* is still a sub-package, so component scanning is unaffected). Everything else — new and pre-existing — lives under com.himaloyit.buildnation.sac.rbac.*, same folder shape throughout:
+
+com.himaloyit.buildnation.sac.rbac
+├── controllers
+│   ├── rest              # @RestController classes: PrincipalController, RoleController, PermissionController, ResourceController, AuthorizationController, AuthController (moved here)
+│   └── advice            # GlobalResponseEntityException (moved here)
+├── domain
+│   ├── entities           # Principal, Role, Resource, Permission, PrincipalRole, RolePermission (JPA @Entity), RbacAuditableEntity (@MappedSuperclass for the shared status/audit/version columns)
+│   ├── dto                # PrincipalDTO, RoleDTO, PermissionDTO, ResourceDTO, ...
+│   ├── enums               # PrincipalType, CredentialType, Status, HttpMethod, ResourceType, Action
+│   ├── mapper              # MapStruct mappers, interface-prefixed: IPrincipalMapper, IRoleMapper, IPermissionMapper, IResourceMapper (@Mapper(componentModel = "spring"))
+│   ├── model                # Create/Update request models + ApiResponse<T>, RegisterRequest/LoginRequest/RefreshTokenRequest/AuthResponse (moved here)
+│   └── repositories
+│       └── iRepositories    # Spring Data JPA repositories, interface-prefixed: IPrincipalRepository, IRoleRepository, IPermissionRepository, IResourceRepository, IPrincipalRoleRepository, IRolePermissionRepository
+├── services
+│   ├── iServices            # Interface-prefixed service contracts: IPrincipalService, IRoleService, IPermissionService, IResourceService, IPrincipalRoleService, IRolePermissionService, IAuthorizationService, IAuthService (moved here)
+│   └── impl                 # Implementations (constructor injection, no field @Autowired), including AuthServiceImpl (moved here, rewired from User to Principal)
+├── security                 # JwtTokenProvider, UserDetailsServiceImpl, JwtAuthenticationFilter, SecurityConfig (all moved here), CurrentPrincipalContext (new — resolves the caller's principalCode for createdBy/updatedBy stamping)
+├── config                    # RedisConfig (moved here), RbacSeeder (new — idempotent CommandLineRunner seeding roles/resources/permissions/bootstrap admin)
+└── util
+    └── exceptions            # EntityNotFoundException, DuplicateCodeException (generic, reused across every entity in this package), InvalidTokenException (moved here)
+
+Note: this is a whole-service package rename, not just new code added alongside the old — User, UserRole, UserDTO, IUserRepository, IUserMapper and their exceptions are deleted outright (Principal fully replaces them, see the appended implementation plan below for the full rationale and design).
+
+Naming/coding conventions to follow throughout (already established in this codebase, apply to all generated code in this spec):
+- All interfaces prefixed with I (IRoleService, IRoleRepository, IRoleMapper, ...).
+- Entity IDs are UUID, generated via @GeneratedValue(strategy = GenerationType.AUTO).
+- Constructor injection only (no field-level @Autowired).
+- All REST endpoints return the existing ApiResponse<T> wrapper (ApiResponse.success(message, data) / ApiResponse.error(status, message)) — do not invent a new response envelope.
+- REST URL pattern: /api/v1/{resource} (e.g. /api/v1/roles, /api/v1/permissions, /api/v1/principals, /api/v1/resources).
+- MapStruct mappers use @Mapper(componentModel = "spring").
+- Lombok: @Data @NoArgsConstructor @AllArgsConstructor @Builder on entities/DTOs/models.
+- Target Java 17 (this project's actual version), not Java 21 as stated in the Tech Stack section above.
+
+### 10. Performance Considerations
+
+Implement:
+
+* FetchType.LAZY where appropriate
+* Batch fetching
+* Indexes on lookup columns
+* Caching strategy recommendations (Redis)
+* JWT permission caching recommendations
+
+The generated code should be **production-ready**, follow **Spring Boot best practices**, include **validation**, **Lombok**, **builder pattern**, **equals/hashCode**, **toString exclusions**, and proper **transaction management**.
+
+
+
+
+*******************************Prompt for Claude AI End******************************
+
+
+
+*******************************Prompt for Claude AI End******************************
+
+
+*******************************Implementation Plan (approved, executed) Start****************************
+
+# Principal-Based RBAC (Principal → Role → Permission → Resource) — security-access-control
+
+## Context
+
+This spec (final version, iterated across this conversation) specifies a production RBAC model built around a generic `Principal` identity (human user, mobile app, web app, AI agent, service account, external system, microservice) instead of the previous `security-access-control` service's fixed `User`/`UserRole` enum. Per the user's explicit decision: **`Principal` fully replaces `User`** — `User`, `UserRole`, and everything built against them (`AuthServiceImpl`, `UserDetailsServiceImpl`, `JwtTokenProvider`, `AuthController`, `IUserRepository`, `IUserMapper`, `UserDTO`) were rewired to `Principal`, not kept alongside it. There was no production data yet, so this was a clean cut.
+
+This plan covers the full spec (all 6 entities, the auth rewire, `AuthorizationService`, JWT/security config changes, seed data) within `security-access-control` only — no cross-service enforcement (gateway header propagation to other services) is in scope, matching how far this design was taken.
+
+## Prior state (before this implementation)
+
+- `User` (`sac_users`): `id, email(unique), password, fullName, role(UserRole), enabled, accountNonLocked, createdAt, updatedAt`.
+- `AuthServiceImpl` implemented register/login/refresh/logout/validateToken/getCurrentUser against `IUserRepository`, keyed by email throughout.
+- `UserDetailsServiceImpl` loaded `User` by email, built one `ROLE_xxx` `GrantedAuthority` from `UserRole`.
+- `JwtTokenProvider`: access token subject = email, claim `role` = `UserRole.name()`; refresh token = random UUID in Redis (`refresh:{uuid} → email`); blacklist = `blacklist:{jti} → "true"`.
+- `SecurityConfig`: stateless, CSRF off, public paths `/api/v1/auth/{register,login,refresh}` + `/actuator/**`, everything else `.authenticated()`.
+- Gateway routed only `/api/v1/auth/**` to `security-access-control`.
+- `pom.xml` already had everything needed: JJWT 0.12.6, MapStruct 1.5.5, Lombok, Redis, Spring Security, Validation — no new dependencies required.
+
+## Package layout — `rbac` covers the whole service, not just the new entities
+
+Since RBAC is the entire purpose of `security-access-control`, the `rbac` package segment applies to **everything** in the service — no split between "new stuff under `sac.rbac.*`" and "old auth stack under `sac.*`". Only the Spring Boot main class (`SecurityAccessControlApplication`) stays at the `com.himaloyit.buildnation.sac` root.
+
+Everything else — new and pre-existing — lives under `com.himaloyit.buildnation.sac.rbac.*`:
+`controllers/{rest,advice}`, `domain/{entities,dto,enums,mapper,model,repositories/iRepositories}`, `services/{iServices,impl}`, `security`, `config`, `util/exceptions`.
+
+The existing auth classes were physically moved (package rename, not new code added alongside): `sac.security.*` → `sac.rbac.security.*`, `sac.services.*` → `sac.rbac.services.*`, `sac.controllers.*` → `sac.rbac.controllers.*`, `sac.domain.model.*` (`ApiResponse`, `RegisterRequest`, `LoginRequest`, `RefreshTokenRequest`, `AuthResponse`) → `sac.rbac.domain.model.*`, `sac.config.RedisConfig` → `sac.rbac.config.RedisConfig`, `sac.util.exceptions.InvalidTokenException` → `sac.rbac.util.exceptions.InvalidTokenException`, `sac.controllers.advice.GlobalResponseEntityException` → `sac.rbac.controllers.advice.GlobalResponseEntityException`.
+
+## Entities
+
+`Principal`, `Role`, `Resource`, `Permission` (ManyToOne → `Resource`), `PrincipalRole` (join, unique `(principal_id, role_id)`), `RolePermission` (join, unique `(role_id, permission_id)`) — fields per §1/§2 above. All six share a new `@MappedSuperclass` `RbacAuditableEntity` (`status`, `createdBy`, `createdDate`, `updatedBy`, `updatedDate`, `@Version version`) to avoid repeating the same six columns six times — `@SuperBuilder` used throughout instead of plain `@Builder` so the builder chains correctly through inheritance.
+
+`@Version` optimistic locking + `createdBy`/`updatedBy` audit columns are a new pattern for this codebase (every other entity uses plain `createdAt`/`updatedAt` set manually) — intentional per the spec, scoped to the `rbac` package only.
+
+**`createdBy`/`updatedBy` population**: a `CurrentPrincipalContext` helper (`sac.rbac.security`) reads `SecurityContextHolder.getContext().getAuthentication().getName()` — real caller identity (the authenticated principal's `principalCode`), falling back to `"system"` only when there's no authenticated caller (e.g. the startup seeder).
+
+## Auth rewire: User → Principal
+
+**Login identifier split** — `Principal.email` is only present for `principalType = USER`, but the JWT subject must be a universal identifier valid for every principal type:
+- JWT subject = `principalCode`, always (never email).
+- `UserDetailsServiceImpl.loadUserByUsername(String identifier)` does a dual lookup: `IPrincipalRepository.findByPrincipalCode(identifier)` first, falling back to `findByEmail(identifier)` — one method serves both `DaoAuthenticationProvider` during login (invoked with the typed email) and `JwtAuthenticationFilter` on every subsequent request (invoked with the `principalCode` pulled from the JWT subject).
+- Builds `GrantedAuthority` from both roles (`ROLE_{roleCode}`) and permissions (`PERMISSION_{permissionCode}`) resolved fresh from `IAuthorizationService` on every call — this is the spec's "JwtAuthenticationConverter" requirement, implemented as an extension of the existing `UserDetailsServiceImpl` flow rather than the OAuth2-resource-server `JwtAuthenticationConverter` type (this project doesn't use that Spring Security module).
+
+**`AuthServiceImpl`**: `register` stays USER-only (self-service signup only makes sense for humans; other principal types are admin-provisioned via `POST /api/v1/principals`). Builds `Principal` with `principalCode = email`, `credentialType=PASSWORD`, assigns the requested `roleCode` or the seeded `VIEWER` default via `IPrincipalRoleService.assignRole`. `login` authenticates via `AuthenticationManager`, updates `lastLoginAt`, and returns `AuthResponse` with `principal` (renamed from `user`) plus convenience `roles`/`permissions` string lists — resolved via `IAuthorizationService` for client UX, **not** embedded in the JWT itself (per §5 — DB-loaded authorities per request, no staleness).
+
+`JwtTokenProvider.generateAccessToken(String principalCode)` — dropped the `role` claim/param entirely. `getEmailFromToken`/`getEmailFromRefreshToken` renamed to `getPrincipalCodeFromToken`/`getPrincipalCodeFromRefreshToken`.
+
+Deleted outright: `User.java`, `UserRole.java`, `UserDTO.java`, `IUserRepository.java`, `IUserMapper.java`, `UserNotFoundException.java`, `UserAlreadyExistsException.java`. Replaced by `PrincipalDTO` and two generic exceptions reused across every entity in this package: `EntityNotFoundException` (404, mirrors the cdm pattern) and `DuplicateCodeException` (409).
+
+## `IAuthorizationService`
+
+```
+boolean hasPermission(String principalCode, String permissionCode)
+boolean hasAccess(String principalCode, String apiPath, HttpMethod httpMethod)
+Set<String> getPermissionCodes(String principalCode)
+Set<String> getRoleCodes(String principalCode)
+```
+
+Joins `Principal → PrincipalRole → Role → RolePermission → Permission (→ Resource)` via JPQL repository queries (`IRoleRepository.findActiveRolesByPrincipalCode`, `IPermissionRepository.findActivePermissionsByPrincipalCode` with `JOIN FETCH perm.resource`), filtered to `Status.ACTIVE` at every hop. `hasAccess` matches `resource.apiPath` against the request path via `AntPathMatcher` (same class `JwtAuthenticationFilter` already uses).
+
+`getPermissionCodes`/`getRoleCodes` are `@Cacheable` (Redis, cache names `principal-permissions`/`principal-roles`, keyed by `principalCode`). `PrincipalRoleService.assignRole/revokeRole` evict both caches for the affected principal (via `CacheManager`, since the key is `principalCode` not a direct method arg); `RolePermissionService.assignPermission/revokePermission` evict `principal-permissions` for every `Principal` holding that `Role` (small fan-out query via `IPrincipalRoleRepository.findByRole_RoleId`).
+
+## REST surface
+
+Full CRUD for `Resource`, `Permission`, `Role`, `Principal` at `/api/v1/{resources,permissions,roles,principals}`, plus assignment sub-resources (`POST`/`DELETE /roles/{roleId}/permissions/{permissionId}`, `POST`/`DELETE /principals/{principalId}/roles/{roleId}`) and a read-only `AuthorizationController` at `/api/v1/authz` exposing `IAuthorizationService` directly (`/principals/{code}/permissions`, `/principals/{code}/roles`, `/check`, `/check-access`).
+
+**Every write/read endpoint is gated with `@PreAuthorize("hasAuthority('PERMISSION_{entity}:{action}')")`** matching the seeded permission codes (`principal:create/view/update/delete`, same for `role`/`permission`/`resource`) — this was *not* in the original plan and had to be added after verification testing showed any authenticated principal could hit any endpoint regardless of role (see "Corrections made during verification" below).
+
+## Seed data
+
+`RbacSeeder` (`sac.rbac.config`, idempotent `CommandLineRunner`) seeds, only if absent:
+- Roles: `ADMIN`, `MP_MINISTER`, `PROJECT_OFFICER`, `ENGINEER`, `FINANCE_OFFICER`, `VIEWER` (the actual BuildNation role list from the original spec, not the generic prompt's `CARD_*` banking example).
+- Resources + Permissions: one pair per `{principal,role,permission,resource} × {create,view,update,delete}` (16 total), scoped to `security-access-control`'s own new admin API only — seeding for `member-management`/`cdm` endpoints is deferred until cross-service enforcement actually checks them.
+- `RolePermission`: `ADMIN` → all 16; `VIEWER` → the 4 `*:view` permissions only.
+- **A bootstrap `admin@buildnation.local` `Principal` with the `ADMIN` role** (configurable via `rbac.admin.email`/`rbac.admin.password`, default `Admin@123`) — added during verification once `@PreAuthorize` was wired in: without it, nobody could ever reach `ADMIN`, since assigning a role requires `principal:update`, which only `ADMIN` holds, and no `Principal` exists on a fresh database.
+
+## Gateway wiring
+
+Added `/api/v1/principals/**`, `/api/v1/roles/**`, `/api/v1/permissions/**`, `/api/v1/resources/**`, `/api/v1/authz/**` to the existing `security-access-control-route` path list in `gateway-service-config`.
+
+## Corrections made during verification (not in the original plan)
+
+End-to-end testing through the gateway surfaced three real gaps, all fixed:
+1. **No `@PreAuthorize` anywhere** — the original plan specified permission codes and seeded them, but never wired `@PreAuthorize` onto the controllers, so authorization was effectively a no-op (any authenticated principal could do anything). Added to every write/read endpoint across all four CRUD controllers.
+2. **`AccessDeniedException` was swallowed by the generic `Exception` handler**, returning 500 instead of 403, because Spring MVC's `@ExceptionHandler` resolution happens before Spring Security's `ExceptionTranslationFilter` would otherwise convert it. Added an explicit `@ExceptionHandler(AccessDeniedException.class)` → 403.
+3. **Deleting a `Role`/`Permission`/`Resource` still referenced by a join row threw a raw `DataIntegrityViolationException`** → 500 with a full SQL stack trace in the response body. Added a generic handler → 409 with a friendly message, covering every entity's delete endpoint without needing bespoke reference-checking in each service.
+4. **No bootstrap admin** — see seed data section above; without this, `@PreAuthorize` made the system permanently unusable (nobody could ever be granted `ADMIN`).
+
+## Verification performed (through the gateway, `localhost:8081`)
+
+1. Both services build clean (`./mvnw clean package`), no leftover references to deleted `User`/`UserRole`/`UserDTO`.
+2. `docker compose up -d --build` for both services + dependencies; confirmed `RbacSeeder` logged `RBAC seed complete: 6 roles, 16 resources, 16 permissions` and the bootstrap admin warning.
+3. `POST /api/v1/auth/register` (no `roleCode`) → created principal has the default `VIEWER` role; JWT subject (decoded) is the `principalCode`/email, with no `role` claim present.
+4. `POST /api/v1/auth/login` as `VIEWER` → `POST /api/v1/roles/create` correctly returns 403; `GET /api/v1/roles` correctly returns 200.
+5. Logged in as the seeded `admin@buildnation.local`, assigned `ADMIN` role to the `VIEWER` test principal via `POST /api/v1/principals/{id}/roles/{adminRoleId}` → re-login shows both roles, and the same `role:create` call that was 403 now succeeds (confirms cache eviction on role assignment works) — created row's `createdBy` correctly shows the caller's `principalCode`, confirming `CurrentPrincipalContext`.
+6. `GET /api/v1/authz/check?...&permissionCode=role:create` and `GET /api/v1/authz/check-access?...` both reflect the correct true/false.
+7. Created a `SERVICE_ACCOUNT` principal via `POST /api/v1/principals` with no `email` → saved successfully (nullable + per-value-unique, not a blanket NOT NULL unique).
+8. `DELETE` on a `Role` still referenced by `RolePermission`/`PrincipalRole` → 409 conflict with a clean message (not a stack trace); `DELETE` on a nonexistent id → 404.
+9. Duplicate `roleCode` on create → 409.
+
+*******************************Implementation Plan (approved, executed) End****************************
+

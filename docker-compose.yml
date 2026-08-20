@@ -168,6 +168,23 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  build-nation-ui:
+    build:
+      context: ./build-nation-ui
+      dockerfile: Dockerfile
+    container_name: buildnation-ui
+    ports:
+      - "8090:8090"
+    environment:
+      GATEWAY_URL: http://buildnation-gateway:8081
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
+    depends_on:
+      eureka-service-discovery:
+        condition: service_healthy
+      gateway-service-config:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   buildnation_pgdata:
   buildnation_redisdata:

@@ -17,7 +17,8 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver {
 
     public LoginView() {
         login.setTitle("BuildNation");
-        login.setDescription("Political Party Management System");
+        //login.setDescription("Political Party Management System");
+        login.setDescription("Constituency Development Management System");
         login.setAction("login");
         login.setOpened(true);
         login.setForgotPasswordButtonVisible(false);

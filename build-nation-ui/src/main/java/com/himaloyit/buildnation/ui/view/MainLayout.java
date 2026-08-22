@@ -17,6 +17,7 @@ import com.himaloyit.buildnation.ui.view.wo.InspectionListView;
 import com.himaloyit.buildnation.ui.view.wo.PaymentListView;
 import com.himaloyit.buildnation.ui.view.wo.WorkOrderListView;
 import com.himaloyit.buildnation.ui.view.audit.AuditLogListView;
+import com.himaloyit.buildnation.ui.view.member.MemberListView;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.avatar.Avatar;
@@ -78,6 +79,8 @@ public class MainLayout extends AppLayout implements RouterLayout {
     private SideNav navigation() {
         SideNav nav = new SideNav();
         nav.addItem(new SideNavItem("Dashboard", DashboardView.class, VaadinIcon.DASHBOARD.create()));
+
+        nav.addItem(new SideNavItem("Members", MemberListView.class, VaadinIcon.GROUP.create()));
 
         SideNavItem region = new SideNavItem("Region");
         region.setPrefixComponent(VaadinIcon.MAP_MARKER.create());

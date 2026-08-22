@@ -8,6 +8,7 @@ import com.himaloyit.buildnation.ui.view.region.UpazilaListView;
 import com.himaloyit.buildnation.ui.view.region.VillageListView;
 import com.himaloyit.buildnation.ui.view.region.WardListView;
 import com.himaloyit.buildnation.ui.view.prj.CategoryListView;
+import com.himaloyit.buildnation.ui.view.prj.PriorityQueueView;
 import com.himaloyit.buildnation.ui.view.prj.ProjectListView;
 import com.himaloyit.buildnation.ui.view.prj.SubCategoryListView;
 import com.himaloyit.buildnation.ui.view.fund.FundAllocationListView;
@@ -96,6 +97,7 @@ public class MainLayout extends AppLayout implements RouterLayout {
         projects.addItem(new SideNavItem("Categories", CategoryListView.class));
         projects.addItem(new SideNavItem("SubCategories", SubCategoryListView.class));
         projects.addItem(new SideNavItem("Projects", ProjectListView.class));
+        projects.addItem(new SideNavItem("Priority Queue", PriorityQueueView.class));
         nav.addItem(projects);
 
         SideNavItem funds = new SideNavItem("Funds");

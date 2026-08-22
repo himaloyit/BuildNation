@@ -6,6 +6,7 @@ import com.himaloyit.buildnation.ui.dto.PageResponseDTO;
 import com.himaloyit.buildnation.ui.dto.prj.CreateProjectRequest;
 import com.himaloyit.buildnation.ui.dto.prj.ProjectDTO;
 import com.himaloyit.buildnation.ui.dto.prj.ProjectStatus;
+import com.himaloyit.buildnation.ui.dto.prj.UpdateProjectPriorityRequest;
 import com.himaloyit.buildnation.ui.dto.prj.UpdateProjectRequest;
 import com.himaloyit.buildnation.ui.dto.prj.UpdateProjectStatusRequest;
 import org.springframework.core.ParameterizedTypeReference;
@@ -13,12 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
-/**
- * Talks to constituency-development-management's /api/v1/projects endpoints through the Gateway.
- * The priority-queue endpoints ({@code /priority-queue}, {@code /priority-queue/recalculate}) are
- * deliberately not wired in yet — deferred until a dedicated priority-queue screen is built, see
- * build_nation_ui memory notes.
- */
+/** Talks to constituency-development-management's /api/v1/projects endpoints through the Gateway. */
 @Component
 public class ProjectClient {
 
@@ -68,6 +64,25 @@ public class ProjectClient {
         return client.patch("/api/v1/projects/" + id + "/status", new UpdateProjectStatusRequest(status),
                 new ParameterizedTypeReference<ApiResponseDTO<ProjectDTO>>() {
                 });
+    }
+
+    public ProjectDTO updatePriority(UUID id, Integer priorityScore) {
+        return client.patch("/api/v1/projects/" + id + "/priority", new UpdateProjectPriorityRequest(priorityScore),
+                new ParameterizedTypeReference<ApiResponseDTO<ProjectDTO>>() {
+                });
+    }
+
+    public PageResponseDTO<ProjectDTO> getPriorityQueue(UUID categoryId, int page, int size) {
+        String uri = "/api/v1/projects/priority-queue?page=" + page + "&size=" + size
+                + (categoryId == null ? "" : "&categoryId=" + categoryId);
+        return client.get(uri, new ParameterizedTypeReference<ApiResponseDTO<PageResponseDTO<ProjectDTO>>>() {
+        });
+    }
+
+    public int recalculatePriorityQueue(UUID categoryId) {
+        String uri = "/api/v1/projects/priority-queue/recalculate" + (categoryId == null ? "" : "?categoryId=" + categoryId);
+        return client.post(uri, null, new ParameterizedTypeReference<ApiResponseDTO<Integer>>() {
+        });
     }
 
     public void delete(UUID id) {

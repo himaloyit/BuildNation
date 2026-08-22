@@ -1,0 +1,21 @@
+/*
+ * BuildNation "Bangladesh Civic" theme — overrides Lumo's default tokens so every
+ * Lumo-primary-themed component (primary buttons, links, focus rings, the SideNav's
+ * current-item highlight) picks up the deep forest green instead of Lumo's stock blue,
+ * and every Lumo-error-themed component (delete buttons, error notifications) picks up
+ * the reserved civic red. Header/sidebar-specific colors live in MainLayout.java itself
+ * since those are plain elements this app builds and styles directly, not Lumo tokens.
+ */
+html {
+  --lumo-primary-color: #0B4D3A;
+  --lumo-primary-color-50pct: rgba(11, 77, 58, 0.5);
+  --lumo-primary-color-10pct: rgba(11, 77, 58, 0.1);
+  --lumo-primary-text-color: #0B4D3A;
+  --lumo-primary-contrast-color: #F2F8F4;
+
+  --lumo-error-color: #C8323F;
+  --lumo-error-color-50pct: rgba(200, 50, 63, 0.5);
+  --lumo-error-color-10pct: rgba(200, 50, 63, 0.1);
+  --lumo-error-text-color: #C8323F;
+  --lumo-error-contrast-color: #FBF2F3;
+}

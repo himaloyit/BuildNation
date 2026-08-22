@@ -22,6 +22,7 @@ import com.himaloyit.buildnation.ui.view.member.MemberListView;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.avatar.Avatar;
+import com.vaadin.flow.component.avatar.AvatarVariant;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.H1;
@@ -40,9 +41,23 @@ import jakarta.annotation.security.PermitAll;
  * Application shell: header (title + user info + logout) and a side navigation drawer.
  * Menu items appear here only once the module they link to actually exists — see
  * Doc/Prompt/Build_Nation_Vaadin_UI_Prompt.docx §8.
+ *
+ * <p>Colors implement the "Bangladesh Civic" palette the user picked: a deep forest green
+ * header/accent (drawn from the national flag, restrained so it reads as institutional
+ * rather than decorative) over a pale green-tinted drawer. The primary/error Lumo tokens
+ * driving buttons, links and the SideNav's own current-item highlight are overridden
+ * globally in {@code themes/buildnation/styles.css}; the header and drawer backgrounds
+ * below are plain elements this class builds directly, so they're colored explicitly here.
  */
 @PermitAll
 public class MainLayout extends AppLayout implements RouterLayout {
+
+    private static final String HEADER_BACKGROUND = "#073A2B";
+    private static final String HEADER_INK = "#F2F8F4";
+    private static final String HEADER_LINK = "#7FD1A6";
+    private static final String AVATAR_BACKGROUND = "#145038";
+    private static final String AVATAR_INK = "#E9F5EE";
+    private static final String DRAWER_BACKGROUND = "#EEF5F1";
 
     public MainLayout(AuthenticationContext authenticationContext) {
         addToNavbar(header(authenticationContext));
@@ -51,9 +66,11 @@ public class MainLayout extends AppLayout implements RouterLayout {
 
     private HorizontalLayout header(AuthenticationContext authenticationContext) {
         DrawerToggle toggle = new DrawerToggle();
+        toggle.getStyle().set("color", HEADER_INK);
 
         H1 title = new H1("BuildNation");
         title.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE);
+        title.getStyle().set("color", HEADER_INK);
 
         HorizontalLayout titleGroup = new HorizontalLayout(toggle, title);
         titleGroup.setAlignItems(HorizontalLayout.Alignment.CENTER);
@@ -63,10 +80,14 @@ public class MainLayout extends AppLayout implements RouterLayout {
                 .orElse("Guest");
 
         Avatar avatar = new Avatar(displayName);
+        avatar.addThemeVariants(AvatarVariant.LUMO_XSMALL);
+        avatar.getStyle().set("background-color", AVATAR_BACKGROUND).set("color", AVATAR_INK);
         Span userName = new Span(displayName);
+        userName.getStyle().set("color", HEADER_INK);
 
         Button logout = new Button("Logout", event -> authenticationContext.logout());
         logout.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        logout.getStyle().set("color", HEADER_LINK);
 
         HorizontalLayout userInfo = new HorizontalLayout(avatar, userName, logout);
         userInfo.setAlignItems(HorizontalLayout.Alignment.CENTER);
@@ -77,11 +98,17 @@ public class MainLayout extends AppLayout implements RouterLayout {
         header.setAlignItems(HorizontalLayout.Alignment.CENTER);
         header.setJustifyContentMode(HorizontalLayout.JustifyContentMode.BETWEEN);
         header.addClassNames(LumoUtility.Padding.Horizontal.MEDIUM);
+        header.getStyle().set("background-color", HEADER_BACKGROUND);
         return header;
     }
 
     private SideNav navigation() {
         SideNav nav = new SideNav();
+        nav.setWidthFull();
+        nav.getStyle().set("background-color", DRAWER_BACKGROUND)
+                .set("padding", "var(--lumo-space-s)")
+                .set("box-sizing", "border-box")
+                .set("min-height", "100%");
         nav.addItem(new SideNavItem("Dashboard", DashboardView.class, VaadinIcon.DASHBOARD.create()));
 
         nav.addItem(new SideNavItem("Members", MemberListView.class, VaadinIcon.GROUP.create()));

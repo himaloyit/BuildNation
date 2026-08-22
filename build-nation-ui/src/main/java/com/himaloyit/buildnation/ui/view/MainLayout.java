@@ -2,6 +2,21 @@ package com.himaloyit.buildnation.ui.view;
 
 import com.himaloyit.buildnation.ui.security.AuthenticatedPrincipal;
 import com.himaloyit.buildnation.ui.view.dashboard.DashboardView;
+import com.himaloyit.buildnation.ui.view.region.DistrictListView;
+import com.himaloyit.buildnation.ui.view.region.UnionListView;
+import com.himaloyit.buildnation.ui.view.region.UpazilaListView;
+import com.himaloyit.buildnation.ui.view.region.VillageListView;
+import com.himaloyit.buildnation.ui.view.region.WardListView;
+import com.himaloyit.buildnation.ui.view.prj.CategoryListView;
+import com.himaloyit.buildnation.ui.view.prj.ProjectListView;
+import com.himaloyit.buildnation.ui.view.prj.SubCategoryListView;
+import com.himaloyit.buildnation.ui.view.fund.FundAllocationListView;
+import com.himaloyit.buildnation.ui.view.fund.FundListView;
+import com.himaloyit.buildnation.ui.view.contractor.ContractorListView;
+import com.himaloyit.buildnation.ui.view.wo.InspectionListView;
+import com.himaloyit.buildnation.ui.view.wo.PaymentListView;
+import com.himaloyit.buildnation.ui.view.wo.WorkOrderListView;
+import com.himaloyit.buildnation.ui.view.audit.AuditLogListView;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.avatar.Avatar;
@@ -63,6 +78,40 @@ public class MainLayout extends AppLayout implements RouterLayout {
     private SideNav navigation() {
         SideNav nav = new SideNav();
         nav.addItem(new SideNavItem("Dashboard", DashboardView.class, VaadinIcon.DASHBOARD.create()));
+
+        SideNavItem region = new SideNavItem("Region");
+        region.setPrefixComponent(VaadinIcon.MAP_MARKER.create());
+        region.addItem(new SideNavItem("Districts", DistrictListView.class));
+        region.addItem(new SideNavItem("Upazilas", UpazilaListView.class));
+        region.addItem(new SideNavItem("Unions", UnionListView.class));
+        region.addItem(new SideNavItem("Wards", WardListView.class));
+        region.addItem(new SideNavItem("Villages", VillageListView.class));
+        nav.addItem(region);
+
+        SideNavItem projects = new SideNavItem("Projects");
+        projects.setPrefixComponent(VaadinIcon.CLIPBOARD_TEXT.create());
+        projects.addItem(new SideNavItem("Categories", CategoryListView.class));
+        projects.addItem(new SideNavItem("SubCategories", SubCategoryListView.class));
+        projects.addItem(new SideNavItem("Projects", ProjectListView.class));
+        nav.addItem(projects);
+
+        SideNavItem funds = new SideNavItem("Funds");
+        funds.setPrefixComponent(VaadinIcon.MONEY_DEPOSIT.create());
+        funds.addItem(new SideNavItem("Funds", FundListView.class));
+        funds.addItem(new SideNavItem("Fund Allocations", FundAllocationListView.class));
+        nav.addItem(funds);
+
+        nav.addItem(new SideNavItem("Contractors", ContractorListView.class, VaadinIcon.USERS.create()));
+
+        SideNavItem workOrders = new SideNavItem("Work Orders");
+        workOrders.setPrefixComponent(VaadinIcon.CLIPBOARD_CHECK.create());
+        workOrders.addItem(new SideNavItem("Work Orders", WorkOrderListView.class));
+        workOrders.addItem(new SideNavItem("Payments", PaymentListView.class));
+        workOrders.addItem(new SideNavItem("Inspections", InspectionListView.class));
+        nav.addItem(workOrders);
+
+        nav.addItem(new SideNavItem("Audit Trail", AuditLogListView.class, VaadinIcon.RECORDS.create()));
+
         return nav;
     }
 }

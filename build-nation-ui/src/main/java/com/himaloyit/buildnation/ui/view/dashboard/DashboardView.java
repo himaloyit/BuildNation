@@ -23,6 +23,8 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteAlias;
 
+import jakarta.annotation.security.PermitAll;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +39,7 @@ import java.util.function.LongSupplier;
 @Route(value = "", layout = MainLayout.class)
 @RouteAlias(value = "dashboard", layout = MainLayout.class)
 @PageTitle("Dashboard | BuildNation")
+@PermitAll
 public class DashboardView extends VerticalLayout {
 
     private static final int REFERENCE_DATA_PAGE_SIZE = 500;

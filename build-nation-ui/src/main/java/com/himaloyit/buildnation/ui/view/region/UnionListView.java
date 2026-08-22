@@ -23,6 +23,8 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +33,7 @@ import java.util.UUID;
 /** List/Search/View/Add/Edit/Delete for Union, filterable by its parent Upazila. */
 @Route(value = "unions", layout = MainLayout.class)
 @PageTitle("Unions | BuildNation")
+@PermitAll
 public class UnionListView extends VerticalLayout {
 
     private static final int PAGE_SIZE = 20;

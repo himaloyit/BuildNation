@@ -20,9 +20,12 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
+
 /** List/Search/View/Add/Edit/Delete for the District region entity (top of the region hierarchy). */
 @Route(value = "districts", layout = MainLayout.class)
 @PageTitle("Districts | BuildNation")
+@PermitAll
 public class DistrictListView extends VerticalLayout {
 
     private static final int PAGE_SIZE = 20;

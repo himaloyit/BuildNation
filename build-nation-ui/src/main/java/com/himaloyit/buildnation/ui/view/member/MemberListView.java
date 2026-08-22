@@ -25,9 +25,12 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
+
 /** List/Search/View/Add/Edit/Delete for Member, filterable by Role or Status. */
 @Route(value = "members", layout = MainLayout.class)
 @PageTitle("Members | BuildNation")
+@PermitAll
 public class MemberListView extends VerticalLayout {
 
     private static final int PAGE_SIZE = 20;

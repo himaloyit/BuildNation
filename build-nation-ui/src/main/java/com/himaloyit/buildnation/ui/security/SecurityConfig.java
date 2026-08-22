@@ -24,6 +24,11 @@ public class SecurityConfig extends VaadinWebSecurity {
                 .requestMatchers("/actuator/**").permitAll());
         super.configure(http);
         setLoginView(http, LoginView.class);
+        // Vaadin's own post-login redirect target can come back empty when there's no saved
+        // request to return to (e.g. the user opened /login directly rather than being bounced
+        // there from a protected route) — client shows "Could not navigate to ''" in that case.
+        // Forcing the default success URL sidesteps that entirely.
+        http.formLogin(formLogin -> formLogin.defaultSuccessUrl("/", true));
         http.logout(logout -> logout.addLogoutHandler(backendLogoutHandler));
     }
 }

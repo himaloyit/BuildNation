@@ -34,11 +34,14 @@ import com.vaadin.flow.router.RouterLayout;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 
+import jakarta.annotation.security.PermitAll;
+
 /**
  * Application shell: header (title + user info + logout) and a side navigation drawer.
  * Menu items appear here only once the module they link to actually exists — see
  * Doc/Prompt/Build_Nation_Vaadin_UI_Prompt.docx §8.
  */
+@PermitAll
 public class MainLayout extends AppLayout implements RouterLayout {
 
     public MainLayout(AuthenticationContext authenticationContext) {

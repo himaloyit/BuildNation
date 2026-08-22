@@ -20,9 +20,12 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
+
 /** List/Search/View/Add/Edit/Delete for Project Management Category. */
 @Route(value = "categories", layout = MainLayout.class)
 @PageTitle("Categories | BuildNation")
+@PermitAll
 public class CategoryListView extends VerticalLayout {
 
     private static final int PAGE_SIZE = 20;

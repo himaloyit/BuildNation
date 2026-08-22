@@ -23,9 +23,12 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
+
 /** List/Search/View/Add/Edit/Delete for Contractor, filterable by Type or Status. */
 @Route(value = "contractors", layout = MainLayout.class)
 @PageTitle("Contractors | BuildNation")
+@PermitAll
 public class ContractorListView extends VerticalLayout {
 
     private static final int PAGE_SIZE = 20;

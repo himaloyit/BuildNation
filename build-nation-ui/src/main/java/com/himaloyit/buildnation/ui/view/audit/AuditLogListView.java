@@ -21,6 +21,8 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
+
 import java.util.UUID;
 
 /**
@@ -31,6 +33,7 @@ import java.util.UUID;
  */
 @Route(value = "audit-logs", layout = MainLayout.class)
 @PageTitle("Audit Trail | BuildNation")
+@PermitAll
 public class AuditLogListView extends VerticalLayout {
 
     private static final int PAGE_SIZE = 20;

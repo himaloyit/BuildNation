@@ -23,6 +23,8 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ import java.util.UUID;
  */
 @Route(value = "payments", layout = MainLayout.class)
 @PageTitle("Payments | BuildNation")
+@PermitAll
 public class PaymentListView extends VerticalLayout {
 
     private static final int PAGE_SIZE = 20;

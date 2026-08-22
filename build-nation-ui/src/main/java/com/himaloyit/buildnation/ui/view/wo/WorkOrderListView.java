@@ -26,6 +26,8 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ import java.util.UUID;
 /** List/Search/View/Add/Edit/Delete for WorkOrder, filterable by Project or Contractor. */
 @Route(value = "work-orders", layout = MainLayout.class)
 @PageTitle("Work Orders | BuildNation")
+@PermitAll
 public class WorkOrderListView extends VerticalLayout {
 
     private static final int PAGE_SIZE = 20;

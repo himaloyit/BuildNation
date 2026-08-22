@@ -24,6 +24,8 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
+
 import java.util.UUID;
 
 /**
@@ -35,6 +37,7 @@ import java.util.UUID;
  */
 @Route(value = "priority-queue", layout = MainLayout.class)
 @PageTitle("Priority Queue | BuildNation")
+@PermitAll
 public class PriorityQueueView extends VerticalLayout {
 
     private static final int PAGE_SIZE = 20;

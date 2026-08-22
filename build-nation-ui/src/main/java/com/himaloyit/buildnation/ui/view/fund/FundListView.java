@@ -25,6 +25,8 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +35,7 @@ import java.util.UUID;
 /** List/Search/View/Add/Edit/Delete for Fund, filterable by Category. */
 @Route(value = "funds", layout = MainLayout.class)
 @PageTitle("Funds | BuildNation")
+@PermitAll
 public class FundListView extends VerticalLayout {
 
     private static final int PAGE_SIZE = 20;

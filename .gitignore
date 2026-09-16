@@ -39,6 +39,7 @@
 **/log/
 **/logs/
 .env
+*.mp4
 
 ###
 **/HOME_LOGS_DIR_IS_UNDEFINED

@@ -1,0 +1,216 @@
+services:
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: buildnation-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@buildnation.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 384m
+    mem_reservation: 128m
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    container_name: buildnation-postgres
+    environment:
+      POSTGRES_DB: buildnation_db
+      POSTGRES_USER: buildnation
+      POSTGRES_PASSWORD: buildnation123
+    ports:
+      - "5433:5432"
+    volumes:
+      - buildnation_pgdata:/var/lib/postgresql/data
+    mem_limit: 1536m
+    mem_reservation: 512m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buildnation -d buildnation_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: buildnation-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - buildnation_redisdata:/data
+    mem_limit: 256m
+    mem_reservation: 64m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+  eureka-service-discovery:
+    build:
+      context: ./eureka-service-discovery
+      dockerfile: Dockerfile
+    container_name: buildnation-eureka
+    ports:
+      - "8761:8761"
+    environment:
+      EUREKA_INSTANCE_HOSTNAME: buildnation-eureka
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
+    mem_limit: 384m
+    mem_reservation: 128m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  gateway-service-config:
+    build:
+      context: ./gateway-service-config
+      dockerfile: Dockerfile
+    container_name: buildnation-gateway
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
+      GATEWAY_ROUTES_MEMBER-MANAGEMENT_URI: http://buildnation-member-management:8080
+      GATEWAY_ROUTES_SECURITY-ACCESS-CONTROL_URI: http://buildnation-security:8082
+      GATEWAY_ROUTES_CONSTITUENCY-DEVELOPMENT-MANAGEMENT_URI: http://buildnation-cdm:8083
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m"
+    depends_on:
+      redis:
+        condition: service_healthy
+      eureka-service-discovery:
+        condition: service_healthy
+      member-management:
+        condition: service_started
+      security-access-control:
+        condition: service_started
+      constituency-development-management:
+        condition: service_started
+    mem_limit: 512m
+    mem_reservation: 128m
+    restart: unless-stopped
+
+  security-access-control:
+    build:
+      context: ./security-access-control
+      dockerfile: Dockerfile
+    container_name: buildnation-security
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/buildnation_db
+      SPRING_DATASOURCE_USERNAME: buildnation
+      SPRING_DATASOURCE_PASSWORD: buildnation123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
+      SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      JWT_SECRET: BuildNationSuperSecretKeyForJWT2026ForHS256Algorithm
+      JWT_ACCESS_TOKEN_EXPIRATION_MS: "3600000"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-service-discovery:
+        condition: service_healthy
+    mem_limit: 640m
+    mem_reservation: 128m
+    restart: unless-stopped
+
+  constituency-development-management:
+    build:
+      context: ./constituency-development-management
+      dockerfile: Dockerfile
+    container_name: buildnation-cdm
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/buildnation_db
+      SPRING_DATASOURCE_USERNAME: buildnation
+      SPRING_DATASOURCE_PASSWORD: buildnation123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
+      SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-service-discovery:
+        condition: service_healthy
+    mem_limit: 640m
+    mem_reservation: 128m
+    restart: unless-stopped
+
+  member-management:
+    build:
+      context: ./member-management
+      dockerfile: Dockerfile
+    container_name: buildnation-member-management
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/buildnation_db
+      SPRING_DATASOURCE_USERNAME: buildnation
+      SPRING_DATASOURCE_PASSWORD: buildnation123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
+      SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-service-discovery:
+        condition: service_healthy
+    mem_limit: 640m
+    mem_reservation: 128m
+    restart: unless-stopped
+
+  build-nation-ui:
+    build:
+      context: ./build-nation-ui
+      dockerfile: Dockerfile
+    container_name: buildnation-ui
+    ports:
+      - "8090:8090"
+    environment:
+      GATEWAY_URL: http://buildnation-gateway:8081
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://buildnation-eureka:8761/eureka/
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx768m"
+    depends_on:
+      eureka-service-discovery:
+        condition: service_healthy
+      gateway-service-config:
+        condition: service_started
+    mem_limit: 896m
+    mem_reservation: 256m
+    restart: unless-stopped
+
+volumes:
+  buildnation_pgdata:
+  buildnation_redisdata:

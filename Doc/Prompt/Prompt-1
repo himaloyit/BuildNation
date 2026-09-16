@@ -424,3 +424,63 @@ End-to-end testing through the gateway surfaced three real gaps, all fixed:
 
 *******************************Implementation Plan (approved, executed) End****************************
 
+
+
+
+*******************************Implementation Plan Summary Started****************************
+ Bash(cd "C:/Development/SpringBoot-Dev-MicroServices-BuildNation/BuildNation" && git push origin main 2>&1)
+  ⎿  To https://github.com/himaloyit/BuildNation.git
+        d7977c2..b51a0aa  main -> main
+  ⎿  (timeout 1m)
+  ⎿  Allowed by auto mode classifier
+
+● Pushed successfully (d7977c2..b51a0aa). All 13 tasks are complete. Let me update the project memory since this replaces a documented convention.
+
+  Recalled 1 memory, wrote 2 memories (ctrl+o to expand)
+
+● Now updating MEMORY.md to replace the stale User-based section with pointers to these new files.
+
+  Wrote 1 memory (ctrl+o to expand)
+
+● All done. Summary:
+
+  Implemented: Full Principal-based RBAC (Principal → Role → Permission → Resource) in security-access-control, per Doc/Prompt/Prompt-1. User/UserRole deleted outright;  the whole service now lives under com.himaloyit.buildnation.sac.rbac.*. Auth (register/login/refresh/JWT) rewired end-to-end onto Principal, with
+  IAuthorizationService resolving roles/permissions fresh from the DB (Redis-cached, no JWT claims). Gateway routes the new admin API alongside /auth.
+
+  Tested and fixed live (gaps the original plan missed): wired @PreAuthorize onto every endpoint (it had been designed but never actually applied), added handlers so
+  permission-denied and FK-referenced-delete return clean 403/409 instead of 500, and seeded a bootstrap admin (without it nobody could ever reach the ADMIN role).
+
+  Committed and pushed to origin/main (b51a0aa). Left .env and Doc/RBAC.jpg untracked and Doc/Prompt/Prompt/README.md's pre-existing edits unstaged — none were part of
+  this work.
+
+  Docs updated: Doc/Prompt/Prompt-1 (§9 + full as-built plan appended), Doc/notes.txt, and project memory (new sac_rbac.md / sac_rbac_gotchas.md, MEMORY.md updated).
+
+  Bootstrap admin credentials: admin@buildnation.local / Admin@123 (override via rbac.admin.email/rbac.admin.password env vars) — change this before any real
+  deployment.
+*******************************Implementation Plan Summary End********************************
+
+Resume this session with:
+claude --resume e41ff3cb-dde5-4aba-8d68-a4b0b02be843
+
+
+Continue build-nation-ui from Phase 5
+Resume this session with:
+claude --resume e41ff3cb-dde5-4aba-8d68-a4b0b02be843
+
+The stack is still running at http://localhost:8090 (login admin@buildnation.local / Admin@123)
+
+Complete pending - install the Chrome extension. Then continue building the next domain - project Management.
+Continue with Fund Management next
+Continue with Contractor Management next
+Skip browser verification for now
+
+Pending:-
+Wire audit logging into the other CDM services
+
+Make the UI color same as like image = "UI_Color_Design.PNG". This image is available inside the folder Doc/Prompt. 
+Also I am giving the code from dev tools:- 
+Themes:-
+	1. Lumu
+		01. Institutional Teal
+		02. Bangladesh Civic
+		03. Slate Ledger

@@ -37,6 +37,8 @@
 **/node_modules/
 **/was/
 **/log/
+**/logs/
+.env
 
 ###
 **/HOME_LOGS_DIR_IS_UNDEFINED

@@ -901,3 +901,92 @@ https://claude.ai/code/artifact/f975645f-1bee-4385-a680-0484138e3b22?via=auto_pr
 
 
 
+
+Ready to code?
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ RBAC Domain — Dynamic Roles & Permissions
+
+ Context
+
+ Spec section 11 (Doc/Prompt/Prompt) calls for role-based access with dynamic roles (admin-defined, not hardcoded), listing example roles: MP/Minister, Project
+ Officer, Engineer, Finance Officer, Admin, Viewer. This is unrelated to two other "role" concepts already in the codebase, which must NOT be conflated:
+ - member-management's MemberRole (GENERAL_MEMBER, VOLUNTEER, LEADER, ADMIN, CANDIDATE, DONOR) — political-party membership classification, a business attribute of a
+ party Member.
+ - security-access-control's UserRole (SUPER_ADMIN, ADMIN, MEMBER, VOLUNTEER, VIEWER) — a fixed Java enum used purely for API authorization. This is the one spec
+ section 11 is actually about, and the one this plan replaces.
+
+ Current state, verified directly in code (security-access-control/src/main/java/com/himaloyit/buildnation/sac/):
+ - User.role is @Enumerated(EnumType.STRING) UserRole — a fixed 5-value enum, not admin-editable at runtime.
+ - UserDetailsServiceImpl derives a single Spring Security authority "ROLE_" + user.getRole().name() by re-fetching the user from DB on every request (role changes
+ take effect immediately, no need to wait for token refresh — worth preserving this property).
+ - JwtTokenProvider.generateAccessToken embeds one role claim (the enum name) in the JWT.
+ - SecurityConfig / JwtAuthenticationFilter exist only in security-access-control. No other service (member-management, constituency-development-management,
+ gateway-service-config) validates JWTs, knows who's calling, or enforces anything — confirmed again while building the Audit Trail skeleton, which is exactly why it
+ couldn't capture a real performedBy.
+ - gateway-service-config uses Spring Cloud Gateway (reactive/WebFlux), not servlet-based — confirmed via its pom.xml (spring-cloud-starter-gateway). It has no
+ JWT/security dependency at all today. Any gateway-side JWT work must use reactive GlobalFilter, not a servlet Filter like security-access-control's.
+
+ Phased approach (build and review Phase 1 before starting Phase 2)
+
+ Phase 1 — Dynamic Role/Permission model in security-access-control
+
+ New entities (package com.himaloyit.buildnation.sac.rbac.* — a new sub-domain within security-access-control, mirroring cdm's per-domain package convention):
+ - Role: id (UUID), name (unique String, e.g. "MP_MINISTER", "PROJECT_OFFICER", "ENGINEER", "FINANCE_OFFICER", "ADMIN", "VIEWER"), description, createdAt/updatedAt.
+ Full CRUD via API — this is what makes roles "dynamic" (an admin can add a new role, e.g. "AUDITOR", without a code change or redeploy).
+ - Permission: id, name (unique String, e.g. "project:create", "payment:approve", "fund:allocate", "user:manage"). Read-only via API — deliberately not
+ admin-creatable, because a permission string only means something if code somewhere actually checks it (hasAuthority("payment:approve")); inventing one via the API
+ wouldn't do anything. Seeded at startup from a fixed list matching real enforcement points added over time.
+ - RolePermission: join table (role_id, permission_id) — many-to-many. POST/DELETE /api/v1/roles/{roleId}/permissions/{permissionId} to assign/revoke. This
+ many-to-many table is the actual "dynamic" part — permission-to-role mapping is data, editable by an admin at runtime with zero redeploys.
+
+ Migration of User.role: change User.role from @Enumerated(EnumType.STRING) UserRole to @ManyToOne Role role (a real FK). Since there's no production data yet
+ (confirmed nothing beyond local dev/test users), this is a clean cut, not a live migration — drop the UserRole enum entirely, seed the 6 spec roles (plus keep
+ ADMIN/VIEWER since they already exist conceptually) via a CommandLineRunner/@PostConstruct seeder on startup, and update RegisterRequest/AuthServiceImpl to assign a
+ Role by name/id instead of an enum value. One user → one role (not multi-role) — matches the existing single-role-column shape and the spec's flat role list; can
+ revisit if you need a user to hold multiple roles later.
+
+ JWT changes (JwtTokenProvider): the role claim becomes the role's name (still a string, no format change). Add a new permissions claim: a JSON array of the resolved
+ permission names for that role at issuance time. This lets Phase 2 forward permissions downstream without a callback into security-access-control on every request —
+ the tradeoff is staleness (a role's permissions changing doesn't affect already-issued tokens until they expire/refresh), acceptable given the existing 1h
+ access-token TTL.
+
+ Endpoints: /api/v1/roles (CRUD), /api/v1/permissions (list-only), /api/v1/roles/{roleId}/permissions (list assigned, POST/DELETE /{permissionId} to assign/revoke).
+ Reuses sac's existing ApiResponse/GlobalResponseEntityException/EntityNotFoundException patterns.
+
+ Phase 2 — Cross-service enforcement (build only after Phase 1 is reviewed/working)
+
+ - Gateway (gateway-service-config): add the JJWT dependency + the same jwt.secret the other services use (already an env-var pattern). Add a reactive GlobalFilter
+ (runs before routing, ordered ahead of the existing rate-limiter/circuit-breaker filters) that: validates the JWT signature+expiry, checks the Redis blacklist
+ (blacklist:{jti} — same Redis instance the gateway already connects to for rate limiting), and on success mutates the outgoing request to add trusted headers
+ (X-User-Email, X-User-Role, X-User-Permissions) before forwarding. Public paths (/api/v1/auth/register|login|refresh) stay unauthenticated, matching
+ security-access-control's existing PUBLIC_PATHS list.
+ - Backend services (member-management, constituency-development-management): add a lightweight filter that reads those trusted headers into a request-scoped context
+ (no full Spring Security needed there — just enough to know who's calling and what they're allowed to do). Add permission checks on sensitive endpoints as you
+ identify them (e.g. only FINANCE_OFFICER/ADMIN can approve a Payment, only PROJECT_OFFICER/ADMIN can create a Project).
+ - Audit Trail closes the loop: cdm's AuditLogController/services read X-User-Email from that same context instead of trusting a client-supplied performedBy field —
+ the exact gap flagged when the Audit Trail skeleton was built.
+
+ What's deliberately out of scope here
+
+ - No change to member-management's MemberRole — different concept, untouched.
+ - No multi-role-per-user support (flagged above as a possible future extension).
+ - Phase 2 is not started until Phase 1 is reviewed — this plan intentionally stops at a natural checkpoint rather than committing to the full cross-service rollout in
+ one pass.
+
+ Verification
+
+ Phase 1: ./mvnw clean package in security-access-control; rebuild+restart the container; through the gateway (/api/v1/auth/... still routes there): register a user,
+ confirm they get a seeded role; create a custom role via /api/v1/roles, assign/revoke permissions, confirm /api/v1/auth/login's JWT now contains a permissions claim
+ matching what's assigned; confirm a role-permission change is reflected on next login without a redeploy.
+
+ Phase 2 (separate verification pass once built): confirm the gateway rejects an invalid/expired/blacklisted token before it ever reaches a backend service; confirm a
+ valid request arrives at member-management/cdm with the trusted headers populated; confirm an Audit Trail entry created through the normal flow (once wired) captures
+ the real performedBy from the header instead of a client-supplied value.
+ </content>
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+
+
+
+
+

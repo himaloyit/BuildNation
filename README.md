@@ -329,16 +329,102 @@ claude --resume 3f8ce261-b727-4162-ae38-acc84387da9a
 
 
 *********************************Promt*************************************************
--> Is it possible to use dynamically discovery service? Example:- in UAT I will use docker with eureka and in prod 
+-> Question:- Is it possible to use dynamically discovery service? Example:- in UAT I will use docker with eureka and in prod 
 	I will use kubernetes without changing code. If possible then implement that for all services.
+--> Answer:-
+
+● Everything is in place. Here's a complete summary of what was done and how it works:
+
+  ---
+  What Was Implemented
+
+  The Core Idea
+
+  Spring Cloud's DiscoveryClient is an abstraction — both Eureka and Kubernetes implement it identically. The gateway's lb://service-name routing and all
+  load-balanced calls work with either. Zero Java code changes were needed.
+
+  Files Changed
+
+  ┌──────────────────────────┬──────────────────────────────────┬───────────────────────────────────────────────────────────┐
+  │         Service          │             Changed              │                          Created                          │
+  ├──────────────────────────┼──────────────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ member-management        │ pom.xml, application.properties  │ application-eureka.properties, application-k8s.properties │
+  ├──────────────────────────┼──────────────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ security-access-control  │ pom.xml, application.properties  │ application-eureka.properties, application-k8s.properties │
+  ├──────────────────────────┼──────────────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ gateway-service-config   │ pom.xml, application.yml         │ application-eureka.yml, application-k8s.yml               │
+  ├──────────────────────────┼──────────────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ eureka-service-discovery │ — (no changes, only runs in UAT) │ —                                                         │
+  └──────────────────────────┴──────────────────────────────────┴───────────────────────────────────────────────────────────┘
+
+  How to Switch Environments
+
+  UAT / Docker (default — Eureka):
+  # Nothing needed — spring.profiles.active=eureka is the default
+  # Or explicitly:
+  SPRING_PROFILES_ACTIVE=eureka
+
+  # Eureka URL defaults to localhost:8761, override for Docker:
+  EUREKA_URL=http://eureka:8761/eureka/
+
+  Production / Kubernetes:
+  # In your K8s Deployment manifest env section:
+  - name: SPRING_PROFILES_ACTIVE
+    value: k8s
+  In K8s mode, the spring-cloud-starter-kubernetes-client-all queries the Kubernetes API for services whose names match spring.application.name (e.g.,
+  member-management). No Eureka server is deployed at all.
+
+  What Each Profile Does
+
+  ┌─────────────────────────────┬─────────────────┬────────────────┐
+  │           Setting           │ eureka profile  │  k8s profile   │
+  ├─────────────────────────────┼─────────────────┼────────────────┤
+  │ Eureka client               │ ON              │ OFF            │
+  ├─────────────────────────────┼─────────────────┼────────────────┤
+  │ K8s DiscoveryClient         │ OFF             │ ON             │
+  ├─────────────────────────────┼─────────────────┼────────────────┤
+  │ K8s ConfigMap/Secrets watch │ OFF             │ OFF            │
+  ├─────────────────────────────┼─────────────────┼────────────────┤
+  │ Discovery mechanism         │ Eureka registry │ K8s API server │
+  ├─────────────────────────────┼─────────────────┼────────────────┤
+  │ Eureka server needed?       │ Yes             │ No             │
+  └─────────────────────────────┴─────────────────┴────────────────┘
+
+  K8s Requirement
+
+  Your K8s Service resource names must match the spring.application.name of each service (e.g., a Service named member-management,
+  security-access-control). The gateway's lb://member-management will then resolve through the K8s DiscoveryClient automatically.
+
+● Here's a quick recap of everything that was done:
+
+  12 files modified/created across 3 services:
+
+  Dependencies — spring-cloud-starter-kubernetes-client-all added to:
+  - member-management/pom.xml
+  - security-access-control/pom.xml
+  - gateway-service-config/pom.xml
+
+  Base configs updated (Eureka config removed, default profile set):
+  - member-management/application.properties
+  - security-access-control/application.properties
+  - gateway-service-config/application.yml
+
+  Profile configs created (6 new files):
+  - application-eureka.properties / application-k8s.properties for member-management
+  - application-eureka.properties / application-k8s.properties for security-access-control
+  - application-eureka.yml / application-k8s.yml for gateway-service-config
+
+  To switch environments, just set one env var:
+  SPRING_PROFILES_ACTIVE=eureka   # UAT/Docker → uses Eureka
+  SPRING_PROFILES_ACTIVE=k8s      # Production → uses Kubernetes API
+
+  No Java code was touched at all.
+
 ####################################################################################################################
 -> Question:- Add Observability as separate folder parallely beside gateway service for all services with Actuator, Prometheus, Grafana, Distributed tracing
 -->  Answer:-
 
 ● All done. Here's the full summary:
-
-  ---                                                                                                                                                       What Was Implemented
-                                                                                                                                                            Folder structure created
 
   BuildNation/
     observability/                          ← new, sits alongside gateway/member-management/etc.
@@ -404,4 +490,215 @@ claude --resume 3f8ce261-b727-4162-ae38-acc84387da9a
   ZIPKIN_URL=http://host.docker.internal:9411   # or http://zipkin:9411 if on same network
   TRACING_SAMPLING_PROBABILITY=0.1              # 10% in production
 
-####################################################################################################################
+
+#####################################################Log Aggregation###############################################################
+-> Question:- Add separate folder for log-aggregation like observability with retention policy.
+-->  Answer:-
+
+● All done. Here's the complete summary:
+  --- 
+  BuildNation/
+    log-aggregation/
+      docker-compose.yml
+      loki/
+        loki-config.yml             ← storage + 30-day retention policy
+      promtail/
+        promtail-config.yml         ← tails all 4 service log files, parses log pattern
+      grafana/
+        provisioning/
+          datasources/
+            loki-datasource.yml     ← auto-provisions Loki with Zipkin trace link
+          dashboards/
+            dashboard-provider.yml
+        dashboards/
+          buildnation-logs.json     ← pre-built log dashboard (auto-loaded)
+
+  logback-spring.xml updated (all 4 services)
+
+  Added traceId and spanId to the file log pattern:
+  before: [%X{requestId:-}] LEVEL logger - message
+  after:  [%X{traceId:-}] [%X{spanId:-}] [%X{requestId:-}] LEVEL logger - message
+  Micrometer Tracing fills these automatically — no code changes needed.
+
+  Promtail pipeline per service
+
+  1. multiline — joins stack traces into one log entry (not just single lines)
+  2. regex — extracts timestamp, traceId, spanId, requestId, level, logger, message from the exact existing log pattern
+  3. labels — promotes level and trace_id as Loki labels (fast label-based filtering)
+  4. timestamp — sets Loki entry time from the log line (not ingest time)
+
+  Loki retention policy (loki-config.yml)
+
+  ┌─────────────────────┬────────────────────────────┐
+  │       Setting       │           Value            │
+  ├─────────────────────┼────────────────────────────┤
+  │ Global retention    │ 30 days (720h)             │
+  ├─────────────────────┼────────────────────────────┤
+  │ Compaction interval │ Every 10 minutes           │
+  ├─────────────────────┼────────────────────────────┤
+  │ Delete delay        │ 2 hours after expiry       │
+  ├─────────────────────┼────────────────────────────┤
+  │ Max line size       │ 256 KB                     │
+  ├─────────────────────┼────────────────────────────┤
+  │ Per-stream override │ Commented example included │
+  └─────────────────────┴────────────────────────────┘
+
+  Grafana dashboard panels (port 3001)
+
+  1. Log Volume by Service — bars/min
+  2. ERROR Log Rate by Service — errors/min
+  3. ERROR / WARN / INFO / DEBUG counts — stat panels for the selected time range
+  4. Live Log Stream — filterable by service + level
+  5. Errors & Warnings only — dedicated panel with stack-trace wrapping
+
+  Trace correlation
+
+  Clicking a traceId in the Loki log panel links directly to Zipkin (from the observability/ stack) — because traceId is now in the log pattern and
+  configured as a derived field.
+
+  To start
+
+  docker compose -f log-aggregation/docker-compose.yml up -d
+
+  # Override log root if services write logs elsewhere:
+  BUILDNATION_LOG_ROOT=/path/to/BuildNation \
+    docker compose -f log-aggregation/docker-compose.yml up -d
+
+  ┌────────────────┬───────────────────────┬───────────────┐
+  │      Tool      │          URL          │  Credentials  │
+  ├────────────────┼───────────────────────┼───────────────┤
+  │ Grafana (logs) │ http://localhost:3001 │ admin / admin │
+  ├────────────────┼───────────────────────┼───────────────┤
+  │ Loki API       │ http://localhost:3100 │ —             │
+  └────────────────┴───────────────────────┴───────────────┘
+
+
+*******************************************RBAC+ABAC*******************************************
+
+I am developing a microservice based application. So, API can be expose to Mobile App, Web App,
+Other system Api, AI agent, etc. So, i need role based access control. Check below this and suggest 
+me for more better option..
+
+RBAC:-
+1. Resource(Resource_ID, Resource_Name, Resource_Url, Resource_Type, Service_Name, Status, Create_By, Create_Date, Update_By, Update_Date, Version)
+2. ResourceGroup(Resource_Group_ID, Resource_Group_Name, Status, Create_By, Create_Date, Update_By, Update_Date, Version)
+4. ResourceAndResourceGroupMap(Resource_Group_ID, Resource_ID, )
+5. Role(Role_ID, Role_Name, Status, Create_By, Create_Date, Update_By, Update_Date, Version)
+6. ResourceGroupAndRoleMap(Role_ID, Resource_Group_ID, )
+7. User(User_ID, User_Name, Status, Create_By, Create_Date, Update_By, Update_Date, Version)
+8. UserRoleMap(User_ID, Role_ID, Status, Create_By, Create_Date, Update_By, Update_Date, Version)
+
+User/PRINCIPAL
+---------
+PRINCIPAL_ID
+PRINCIPAL_TYPE
+PRINCIPAL_CODE
+PRINCIPAL_NAME
+STATUS
+
+| Principal             | Type            |
+| --------------------- | --------------- |
+| rajib                 | HUMAN_USER      |
+| mobile-banking-app    | MOBILE_APP      |
+| partner-bank-api      | EXTERNAL_SYSTEM |
+| fraud-detection-agent | AI_AGENT        |
+| card-service          | MICROSERVICE    |
+
+
+PRINCIPAL
+    |
+    | 1:N
+    v
+PRINCIPAL_ROLE
+    |
+    v
+ROLE
+    |
+    | N:M
+    v
+ROLE_PERMISSION
+    |
+    v
+PERMISSION
+    |
+    v
+RESOURCE
+
+
+PRINCIPAL
+---------
+PRINCIPAL_ID
+PRINCIPAL_TYPE
+PRINCIPAL_CODE
+PRINCIPAL_NAME
+STATUS
+CREATE_BY
+CREATE_DATE
+UPDATE_BY
+UPDATE_DATE
+VERSION
+
+ROLE
+----
+ROLE_ID
+ROLE_CODE
+ROLE_NAME
+ROLE_TYPE
+STATUS
+CREATE_BY
+CREATE_DATE
+UPDATE_BY
+UPDATE_DATE
+VERSION
+
+PRINCIPAL_ROLE_MAP
+--------------
+PRINCIPAL_ID
+ROLE_ID
+STATUS
+CREATE_BY
+CREATE_DATE
+UPDATE_BY
+UPDATE_DATE
+VERSION
+
+PERMISSION
+----------
+PERMISSION_ID
+PERMISSION_CODE
+PERMISSION_NAME
+ACTION
+RESOURCE_ID
+STATUS
+CREATE_BY
+CREATE_DATE
+UPDATE_BY
+UPDATE_DATE
+VERSION
+
+ROLE_PERMISSION_MAP
+---------------
+ROLE_ID
+PERMISSION_ID
+STATUS
+CREATE_BY
+CREATE_DATE
+UPDATE_BY
+UPDATE_DATE
+VERSION
+
+RESOURCE
+--------
+RESOURCE_ID
+RESOURCE_CODE
+RESOURCE_NAME
+SERVICE_NAME
+API_PATH
+HTTP_METHOD
+RESOURCE_TYPE
+STATUS
+CREATE_BY
+CREATE_DATE
+UPDATE_BY
+UPDATE_DATE
+VERSION
